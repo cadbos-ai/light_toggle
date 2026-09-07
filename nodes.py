@@ -74,6 +74,7 @@ class LightIntentParse:
 
         return (object_en, action or "unknown", scope, parsed, status, summary)
 
+
 class MaskArea:
     @classmethod
     def INPUT_TYPES(cls):
@@ -97,6 +98,13 @@ class MaskArea:
             return (frac, px, False, "too_large")
         return (frac, px, True, "found")
 
+
+def _slug(s, maxlen=72):
+    s = "".join(c if c.isalnum() or c in "_-+." else "_" for c in str(s))
+    s = s.strip("._")
+    return s[:maxlen] or "x"
+
+
 class LightGate:
     @classmethod
     def INPUT_TYPES(cls):
@@ -110,6 +118,7 @@ class LightGate:
                 "found":       ("BOOLEAN", {"forceInput": True, "lazy": True}),
                 "mask_status": ("STRING",  {"forceInput": True, "lazy": True}),
                 "prefix_root": ("STRING",  {"default": "lt"}),
+                "run_tag":     ("STRING",  {"forceInput": True}),
             },
         }
 
@@ -119,11 +128,11 @@ class LightGate:
     CATEGORY = "light-toggle"
 
     def _short_circuit(self, parsed, scope):
-        # детекция не нужна: либо уже отказ по разбору, либо операция без адресации
         return (not parsed) or scope == "all"
 
     def check_lazy_status(self, parsed, intent_status, scope,
-                          found=None, mask_status=None, prefix_root="lt"):
+                          found=None, mask_status=None,
+                          prefix_root="lt", run_tag=""):
         if self._short_circuit(parsed, scope):
             return []
         need = []
@@ -134,7 +143,7 @@ class LightGate:
         return need
 
     def run(self, parsed, intent_status, scope,
-            found=None, mask_status=None, prefix_root="lt"):
+            found=None, mask_status=None, prefix_root="lt", run_tag=""):
         if not parsed:
             proceed, status = False, f"reject_intent_{intent_status}"
         elif scope == "all":
@@ -146,8 +155,15 @@ class LightGate:
         else:
             proceed, status = True, "ok"
 
-        safe = "".join(c if c.isalnum() or c in "_-+" else "_" for c in status)
-        return (proceed, status, f"{prefix_root}/{safe}")
+        bucket = "reject" if status.startswith("reject") else "ok"
+        prefix = "/".join([
+            _slug(prefix_root),
+            bucket,
+            _slug(status),
+            _slug(run_tag or "run"),
+        ])
+        return (proceed, status, prefix)
+
 
 class LightImageBranch:
     @classmethod
