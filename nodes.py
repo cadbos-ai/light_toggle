@@ -22,6 +22,31 @@ class LightIntentParse:
         (r"\bсветильник",            "lighting fixture"),
         (r"\bокн|\bокош",            "window"),
     ]
+    KELVIN = [
+        (r"\bзакат|\bзолот\w*\s+час|\bсвеч",           2200),
+        (r"\bочень\s+тепл|\bянтарн",                   2400),
+        (r"\bтепл|\bуютн",                             2700),
+        (r"\bнейтральн|\bестествен",                   4000),
+        (r"\bхолодн|\bбел\w*\s+свет",                  5500),
+        (r"\bдневн",                                   6500),
+    ]
+    INTENSITY = [
+        (r"\bеле|\bчуть|\bслаб|\bприглуш|\bтускл",     0.35),
+        (r"\bмягк|\bнеярк",                            0.6),
+        (r"\bярк|\bсильн|\bпоярч",                     1.25),
+        (r"\bочень\s+ярк|\bмаксимальн",                1.6),
+    ]
+    CONE = [
+        (r"\bузк|\bточечн|\bнаправлен",                60),
+        (r"\bширок",                                   120),
+        (r"\bво\s+все\s+сторон|\bравномерн|\bрассеян", 360),
+    ]
+    DIR = [
+        (r"\bвниз|\bна\s+пол|\bна\s+стол",             0),
+        (r"\bвправо|\bнаправо",                        90),
+        (r"\bвверх|\bна\s+потол",                      180),
+        (r"\bвлево|\bналево",                          270),
+    ]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -34,8 +59,16 @@ class LightIntentParse:
             },
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "BOOLEAN", "STRING", "STRING")
-    RETURN_NAMES = ("object_en", "action", "scope", "parsed", "status", "summary")
+    @staticmethod
+    def _pick(table, text, default):
+        for pat, val in table:
+            if re.search(pat, text):
+                return val
+        return default
+
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "BOOLEAN", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("object_en", "action", "scope", "parsed",
+                    "status", "summary", "spec_json")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
@@ -71,8 +104,17 @@ class LightIntentParse:
         parsed = len(problems) == 0
         status = "ok" if parsed else "+".join(problems)
         summary = f"object={object_en} | action={action or '-'} | scope={scope} | {status}"
+        spec = [{
+            "state":     "on" if action == "on" else "off",
+            "kelvin":    self._pick(self.KELVIN,    t, 2700),
+            "intensity": self._pick(self.INTENSITY, t, 0.85),
+            "cone":      self._pick(self.CONE,      t, 360),
+            "dir_deg":   self._pick(self.DIR,       t, 0),
+            "reach":     0.55,
+        }]
+        spec_json = json.dumps(spec, ensure_ascii=False)
 
-        return (object_en, action or "unknown", scope, parsed, status, summary)
+        return (object_en, action or "unknown", scope, parsed, status, summary, spec_json)
 
 
 class MaskArea:
