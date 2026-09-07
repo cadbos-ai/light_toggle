@@ -96,3 +96,78 @@ class MaskArea:
         if frac > max_fraction:
             return (frac, px, False, "too_large")
         return (frac, px, True, "found")
+
+class LightGate:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "parsed":        ("BOOLEAN", {"forceInput": True}),
+                "intent_status": ("STRING",  {"forceInput": True}),
+                "scope":         ("STRING",  {"forceInput": True}),
+            },
+            "optional": {
+                "found":       ("BOOLEAN", {"forceInput": True, "lazy": True}),
+                "mask_status": ("STRING",  {"forceInput": True, "lazy": True}),
+                "prefix_root": ("STRING",  {"default": "lt"}),
+            },
+        }
+
+    RETURN_TYPES = ("BOOLEAN", "STRING", "STRING")
+    RETURN_NAMES = ("proceed", "status", "filename_prefix")
+    FUNCTION = "run"
+    CATEGORY = "light-toggle"
+
+    def _short_circuit(self, parsed, scope):
+        # детекция не нужна: либо уже отказ по разбору, либо операция без адресации
+        return (not parsed) or scope == "all"
+
+    def check_lazy_status(self, parsed, intent_status, scope,
+                          found=None, mask_status=None, prefix_root="lt"):
+        if self._short_circuit(parsed, scope):
+            return []
+        need = []
+        if found is None:
+            need.append("found")
+        if mask_status is None:
+            need.append("mask_status")
+        return need
+
+    def run(self, parsed, intent_status, scope,
+            found=None, mask_status=None, prefix_root="lt"):
+        if not parsed:
+            proceed, status = False, f"reject_intent_{intent_status}"
+        elif scope == "all":
+            proceed, status = True, "ok_all"
+        elif found is None:
+            proceed, status = False, "reject_no_detector"
+        elif not found:
+            proceed, status = False, f"reject_{mask_status or 'absent'}"
+        else:
+            proceed, status = True, "ok"
+
+        safe = "".join(c if c.isalnum() or c in "_-+" else "_" for c in status)
+        return (proceed, status, f"{prefix_root}/{safe}")
+
+class LightImageBranch:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "proceed":  ("BOOLEAN", {"forceInput": True}),
+                "on_true":  ("IMAGE", {"lazy": True}),
+                "on_false": ("IMAGE", {"lazy": True}),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "run"
+    CATEGORY = "light-toggle"
+
+    def check_lazy_status(self, proceed, on_true=None, on_false=None):
+        if proceed:
+            return [] if on_true is not None else ["on_true"]
+        return [] if on_false is not None else ["on_false"]
+
+    def run(self, proceed, on_true=None, on_false=None):
+        return (on_true if proceed else on_false,)
