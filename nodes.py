@@ -47,6 +47,23 @@ class LightIntentParse:
         (r"\bвверх|\bна\s+потол",                      180),
         (r"\bвлево|\bналево",                          270),
     ]
+    ANCHOR = [
+        (r"\bкроват",                          "bed"),
+        (r"\bдиван",                           "sofa"),
+        (r"\bкресл",                           "armchair"),
+        (r"\bобеден\w*\s+стол|\bстол(?!ешн)",  "dining table"),
+        (r"\bзеркал",                          "mirror"),
+        (r"\bкамин",                           "fireplace"),
+        (r"\bтумб|\bкомод",                    "chest of drawers"),
+        (r"\bлестниц",                         "staircase"),
+        (r"\bокн|\bокош",                      "window"),
+    ]
+    SIDE = [
+        (r"\bслев|\bлев\w*\s+(бра|светильник|ламп|торшер)",  "left"),
+        (r"\bсправ|\bправ\w*\s+(бра|светильник|ламп|торшер)", "right"),
+        (r"\bсверху|\bверхн",                                 "top"),
+        (r"\bснизу|\bнижн",                                   "bottom"),
+    ]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -66,9 +83,10 @@ class LightIntentParse:
                 return val
         return default
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "BOOLEAN", "STRING", "STRING", "STRING")
-    RETURN_NAMES = ("object_en", "action", "scope", "parsed",
-                    "status", "summary", "spec_json")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "BOOLEAN",
+                    "STRING", "STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("object_en", "action", "scope", "parsed", "status",
+                    "summary", "spec_json", "anchor_en", "side")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
@@ -92,6 +110,13 @@ class LightIntentParse:
                 object_en = en
                 break
 
+        object_matched = object_en
+
+        anchor_en = self._pick(self.ANCHOR, t, "")
+        if anchor_en and anchor_en == object_matched:
+            anchor_en = ""    # «зажги свет у окна» — окно и объект, и якорь
+        side = self._pick(self.SIDE, t, "")
+
         problems = []
         if not action:
             problems.append("no_action")
@@ -114,7 +139,7 @@ class LightIntentParse:
         }]
         spec_json = json.dumps(spec, ensure_ascii=False)
 
-        return (object_en, action or "unknown", scope, parsed, status, summary, spec_json)
+        return (object_en, action or "unknown", scope, parsed, status, summary, spec_json, anchor_en, side)
 
 
 class MaskArea:
