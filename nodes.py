@@ -354,8 +354,9 @@ class LightLayerBuild:
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "IMAGE", "MASK", "INT", "STRING")
-    RETURN_NAMES = ("prelit", "lightmap", "affected", "start_at_step", "report")
+    RETURN_TYPES = ("IMAGE", "IMAGE", "MASK", "INT", "STRING", "INT")
+    RETURN_NAMES = ("prelit", "lightmap", "affected",
+                    "start_at_step", "report", "applied")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
@@ -419,7 +420,8 @@ class LightLayerBuild:
                 lightmap.clamp(0, 1).unsqueeze(0),
                 affected.unsqueeze(0),
                 start,
-                report)
+                report,
+                applied)
 
 
 class LightSpecMerge:
