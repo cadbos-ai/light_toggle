@@ -567,9 +567,12 @@ class LightTemplatePick:
             "tpl_plain": ("STRING", {"forceInput": True}),
         }}
 
-    RETURN_TYPES = ("STRING",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("template", "mode")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
     def run(self, action, applied, tpl_lit, tpl_plain):
-        return (tpl_lit if applied > 0 else tpl_plain,)
+        if applied > 0:
+            return (tpl_lit, f"lit_{action}")
+        return (tpl_plain, f"plain_{action}")
