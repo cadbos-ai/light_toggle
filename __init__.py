@@ -1,4 +1,4 @@
-from .nodes import LightGate, LightImageBranch, LightIntentParse, LightLayerBuild, LightMaskSelect, LightSpecMerge, MaskArea
+from .nodes import LightGate, LightImageBranch, LightIntentParse, LightLayerBuild, LightMaskSelect, LightSpecMerge, MaskArea, MaskPickNearest
 
 
 NODE_CLASS_MAPPINGS = {
@@ -9,6 +9,7 @@ NODE_CLASS_MAPPINGS = {
   "LightLayerBuild": LightLayerBuild,
   "LightSpecMerge": LightSpecMerge,
   "LightMaskSelect": LightMaskSelect,
+  "MaskPickNearest": MaskPickNearest,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -19,6 +20,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
   "LightLayerBuild": "Light Layer Build",
   "LightSpecMerge": "Light Spec Merge",
   "LightMaskSelect": "Light Mask Select",
+  "MaskPickNearest": "Mask Pick Nearest",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

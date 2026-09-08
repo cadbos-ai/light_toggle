@@ -461,3 +461,35 @@ class LightMaskSelect:
         if prefer_client and client_mask is not None:
             return (client_mask, "client")
         return (detected_mask, "detector")
+
+
+class MaskPickNearest:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "masks":  ("MASK",),
+            "anchor": ("MASK",),
+        }}
+
+    RETURN_TYPES = ("MASK", "INT", "STRING")
+    RETURN_NAMES = ("mask", "index", "status")
+    FUNCTION = "run"
+    CATEGORY = "light-toggle"
+
+    def run(self, masks, anchor):
+        a = _centroid(anchor[0])
+        if a is None or masks.shape[0] == 0:
+            return (masks[:1] if masks.shape[0] else masks, 0, "no_anchor")
+        if masks.shape[0] == 1:
+            return (masks[:1], 0, "single")
+
+        best, best_d = 0, None
+        for i in range(masks.shape[0]):
+            c = _centroid(masks[i])
+            if c is None:
+                continue
+            d = math.hypot(c[0] - a[0], c[1] - a[1])
+            if best_d is None or d < best_d:
+                best, best_d = i, d
+        return (masks[best:best + 1], best,
+                f"picked_{best}_of_{masks.shape[0]}")
