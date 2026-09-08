@@ -434,3 +434,30 @@ class LightSpecMerge:
             base_i.update(item if isinstance(item, dict) else {})
             merged.append(base_i)
         return (json.dumps(merged, ensure_ascii=False), "client")
+
+
+class LightMaskSelect:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {"prefer_client": ("BOOLEAN", {"default": True})},
+            "optional": {
+                "client_mask":   ("MASK", {"lazy": True}),
+                "detected_mask": ("MASK", {"lazy": True}),
+            },
+        }
+
+    RETURN_TYPES = ("MASK", "STRING")
+    RETURN_NAMES = ("mask", "source")
+    FUNCTION = "run"
+    CATEGORY = "light-toggle"
+
+    def check_lazy_status(self, prefer_client, client_mask=None, detected_mask=None):
+        if prefer_client:
+            return [] if client_mask is not None else ["client_mask"]
+        return [] if detected_mask is not None else ["detected_mask"]
+
+    def run(self, prefer_client, client_mask=None, detected_mask=None):
+        if prefer_client and client_mask is not None:
+            return (client_mask, "client")
+        return (detected_mask, "detector")
