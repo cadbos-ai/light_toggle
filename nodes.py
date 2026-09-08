@@ -493,3 +493,21 @@ class MaskPickNearest:
                 best, best_d = i, d
         return (masks[best:best + 1], best,
                 f"picked_{best}_of_{masks.shape[0]}")
+
+
+class LightTemplatePick:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "action":    ("STRING", {"forceInput": True}),
+            "applied":   ("INT",    {"forceInput": True}),
+            "tpl_lit":   ("STRING", {"forceInput": True}),
+            "tpl_plain": ("STRING", {"forceInput": True}),
+        }}
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "run"
+    CATEGORY = "light-toggle"
+
+    def run(self, action, applied, tpl_lit, tpl_plain):
+        return (tpl_lit if applied > 0 else tpl_plain,)
