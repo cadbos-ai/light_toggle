@@ -1,4 +1,4 @@
-import math
+import json, math, torch
 
 
 from common import _centroid
@@ -12,6 +12,7 @@ class MaskPickByLocation:
                 "masks":     ("MASK",),
                 "anchor_en": ("STRING", {"forceInput": True}),
                 "side":      ("STRING", {"forceInput": True}),
+                "prior_json":("STRING", {"forceInput": True}),
             },
             "optional": {
                 "anchor": ("MASK", {"lazy": True}),
@@ -23,14 +24,23 @@ class MaskPickByLocation:
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
-    def check_lazy_status(self, masks, anchor_en, side, anchor=None):
+    def _prior_ok(self, cent, area_frac, prior, H):
+        if not prior:
+            return True
+        ylo, yhi = prior.get("y", [0.0, 1.0])
+        alo, ahi = prior.get("area", [0.0, 1.0])
+        return (ylo <= cent[1] / max(H, 1) <= yhi) and (alo <= area_frac <= ahi)
+
+    def check_lazy_status(self, masks, anchor_en, side, prior_json, anchor=None):
         if int(masks.shape[0]) <= 1:      # выбирать не из чего
             return []
         if not anchor_en.strip():         # якоря нет — обойдёмся стороной
             return []
+        if not prior_json.strip():
+            return []
         return [] if anchor is not None else ["anchor"]
 
-    def run(self, masks, anchor_en, side, anchor=None):
+    def run(self, masks, anchor_en, side, prior_json, anchor=None):
         n = int(masks.shape[0])
         if n == 0:
             return (masks, "empty")
@@ -52,6 +62,28 @@ class MaskPickByLocation:
                 if best is not None:
                     return (masks[best:best + 1],
                             f"anchor_{anchor_en}_picked_{best}_of_{n}")
+
+        H, W = int(masks.shape[1]), int(masks.shape[2])
+        try:
+            prior = json.loads(prior_json) if prior_json.strip() else {}
+        except json.JSONDecodeError:
+            prior = {}
+
+        keep = []
+        for i in range(n):
+            if cents[i] is None:
+                continue
+            af = float(masks[i].sum()) / max(H * W, 1)
+            if self._prior_ok(cents[i], af, prior, H):
+                keep.append(i)
+
+        if not keep:
+            empty = torch.zeros((1, H, W), device=masks.device, dtype=masks.dtype)
+            return (empty, f"prior_reject_all_{n}")
+
+        masks = masks[keep]
+        cents = [cents[i] for i in keep]
+        n = len(keep)
 
         s = side.strip().lower()
         if s in ("left", "right", "top", "bottom"):
