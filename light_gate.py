@@ -27,7 +27,7 @@ class LightGate:
     CATEGORY = "light-toggle"
 
     def _short_circuit(self, parsed, scope):
-        return (not parsed) or scope == "all"
+        return not parsed
 
     def check_lazy_status(self, parsed, intent_status, scope,
                           found=None, mask_status=None,

@@ -132,6 +132,10 @@ class LightLayerBuild:
         if isinstance(entries, dict):
             entries = [entries]
 
+        n_masks = int(masks.shape[0])
+        if entries and n_masks > len(entries):
+            entries = entries + [entries[-1]] * (n_masks - len(entries))
+
         lightmap = torch.zeros(H, W, 3, device=dev, dtype=dt)
         affected = torch.zeros(H, W, device=dev, dtype=dt)
         notes, applied = [], 0
