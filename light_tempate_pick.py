@@ -3,8 +3,9 @@ class LightTemplatePick:
     def INPUT_TYPES(cls):
         return {"required": {
             "action":    ("STRING", {"forceInput": True}),
-            "applied":   ("INT",    {"forceInput": True}),
+            "mode":      ("STRING", {"forceInput": True}),
             "tpl_lit":   ("STRING", {"forceInput": True}),
+            "tpl_off":   ("STRING", {"forceInput": True}),
             "tpl_plain": ("STRING", {"forceInput": True}),
         }}
 
@@ -13,7 +14,6 @@ class LightTemplatePick:
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
-    def run(self, action, applied, tpl_lit, tpl_plain):
-        if applied > 0:
-            return (tpl_lit, f"lit_{action}")
-        return (tpl_plain, f"plain_{action}")
+    def run(self, action, mode, tpl_lit, tpl_off, tpl_plain):
+        tpl = {"lit": tpl_lit, "off": tpl_off}.get(mode, tpl_plain)
+        return (tpl, f"{mode}_{action}")
