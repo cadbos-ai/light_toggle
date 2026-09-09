@@ -106,17 +106,18 @@ class LightLayerBuild:
                 "masks": ("MASK",),
                 "spec":  ("STRING", {"forceInput": True}),
                 "start_at_step_lit":   ("INT", {"default": 5, "min": 0, "max": 20}),
+                "start_at_step_off":   ("INT", {"default": 3, "min": 0, "max": 20}),
                 "start_at_step_plain": ("INT", {"default": 0, "min": 0, "max": 20}),
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "IMAGE", "MASK", "INT", "STRING", "INT")
+    RETURN_TYPES = ("IMAGE", "IMAGE", "MASK", "INT", "STRING", "INT", "STRING")
     RETURN_NAMES = ("prelit", "lightmap", "affected",
-                    "start_at_step", "report", "applied")
+                    "start_at_step", "report", "applied", "mode")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
-    def run(self, image, masks, spec, start_at_step_lit, start_at_step_plain):
+    def run(self, image, masks, spec, start_at_step_lit, start_at_step_off, start_at_step_plain):
         img = image[0]                                  # [H,W,3]
         H, W, _ = img.shape
         dev, dt = img.device, img.dtype
@@ -186,7 +187,12 @@ class LightLayerBuild:
         lit = lit / (1.0 + dim)                    # гашение (см. пункт 3)
         prelit = _linear_to_srgb(_knee(lit.clamp(min=0.0))).clamp(0, 1)
 
-        start = start_at_step_lit if applied > 0 else start_at_step_plain
+        if applied_on > 0:
+            mode, start = "lit", start_at_step_lit
+        elif applied_off > 0:
+            mode, start = "off", start_at_step_off
+        else:
+            mode, start = "plain", start_at_step_plain
         peak = float((diffuse + emissive).max())
         report = (f"on={applied_on} off={applied_off} peak={peak:.3f} "
                   f"start_at_step={start} " + " ".join(notes))
@@ -196,4 +202,5 @@ class LightLayerBuild:
                 affected.unsqueeze(0),
                 start,
                 report,
-                applied)
+                applied,
+                mode)
