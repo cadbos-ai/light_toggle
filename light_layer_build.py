@@ -1,4 +1,4 @@
-from common import _centroid
+from .common import _centroid
 
 
 import json, math, torch

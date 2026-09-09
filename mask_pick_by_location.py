@@ -1,7 +1,7 @@
 import json, math, torch
 
 
-from common import _centroid
+from .common import _centroid
 
 
 class MaskPickByLocation:
