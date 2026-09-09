@@ -40,8 +40,8 @@ def _cone(H, W, cx, cy, dir_deg, cone_deg, reach, falloff, softness, device, dty
     dx, dy = xs - cx, ys - cy
 
     diag = math.hypot(W, H)
-    r = torch.sqrt(dx * dx + dy * dy) / max(diag * reach, 1e-6)
-    radial = (1.0 - r).clamp(0, 1) ** max(falloff, 1e-3)
+    dist = torch.sqrt(dx * dx + dy * dy)
+    radial = _falloff(dist, max(diag * reach, 1e-6), falloff)
 
     if cone_deg >= 359.0:
         return radial
@@ -71,9 +71,30 @@ def _blur(x, radius):
 
 DEFAULTS = {
     "state": "on", "kelvin": 2700, "intensity": 0.85,
-    "cone": 360, "dir_deg": 0, "reach": 0.55,
-    "falloff": 2.0, "softness": 0.35, "bulb_gain": 2.0, "bulb_blur": 0.02,
+    "cone": 360, "dir_deg": 0, "reach": 0.35,
+    "falloff": 3.0, "softness": 0.35,
+    "bulb_gain": 0.9, "bulb_blur": 0.015,
 }
+
+
+DIFFUSE_SCALE  = 0.55   # во сколько конус умножает освещённость поверхностей
+EMISSIVE_SCALE = 0.70   # аддитивное свечение тела светильника
+OFF_STRENGTH   = 0.75   # сила гашения при state="off"
+KNEE           = 0.75   # порог мягкой компрессии светов
+
+
+def _falloff(dist, reach_px, k):
+    """Обратный квадрат с конечным радиусом."""
+    rn = dist / max(reach_px, 1e-6)
+    inv = 1.0 / (1.0 + (rn * k) ** 2)
+    cut = (1.0 - rn).clamp(0, 1) ** 0.5
+    return inv * cut
+
+
+def _knee(x, knee=KNEE):
+    """Мягкое сжатие светов вместо clamp — белых пятен не возникает."""
+    over = (x - knee).clamp(min=0.0)
+    return torch.where(x > knee, knee + over / (1.0 + over / (1.0 - knee)), x)
 
 
 class LightLayerBuild:
@@ -114,6 +135,10 @@ class LightLayerBuild:
         affected = torch.zeros(H, W, device=dev, dtype=dt)
         notes, applied = [], 0
 
+        diffuse  = torch.zeros(H, W, 3, device=dev, dtype=dt)
+        emissive = torch.zeros(H, W, 3, device=dev, dtype=dt)
+        dim      = torch.zeros(H, W, 3, device=dev, dtype=dt)
+
         for i, raw in enumerate(entries):
             p = dict(DEFAULTS)
             p.update(raw if isinstance(raw, dict) else {})
@@ -140,16 +165,31 @@ class LightLayerBuild:
             contrib = (cone + bulb).unsqueeze(-1) * rgb * float(p["intensity"])
 
             lightmap += contrib
+
+            rgb = torch.tensor(kelvin_to_rgb(p["kelvin"]), device=dev, dtype=dt)
+            inten = float(p["intensity"])
+
+            if p["state"] == "on":
+                diffuse  += cone.unsqueeze(-1) * rgb * inten * DIFFUSE_SCALE
+                emissive += bulb.unsqueeze(-1) * rgb * inten * EMISSIVE_SCALE
+                applied_on += 1
+            else:
+                dim += (cone + bulb).unsqueeze(-1) * rgb * inten * OFF_STRENGTH
+                applied_off += 1
+
             affected = torch.maximum(affected, (cone + bulb).clamp(0, 1))
             applied += 1
             notes.append(f"{i}:ok_{int(p['kelvin'])}K_{int(p['cone'])}deg")
 
         lin = _srgb_to_linear(img)
-        prelit = _linear_to_srgb(lin + lightmap).clamp(0, 1)
+        lit = lin * (1.0 + diffuse) + emissive     # умножаем — фактура сохраняется
+        lit = lit / (1.0 + dim)                    # гашение (см. пункт 3)
+        prelit = _linear_to_srgb(_knee(lit.clamp(min=0.0))).clamp(0, 1)
 
         start = start_at_step_lit if applied > 0 else start_at_step_plain
-        report = f"applied={applied} start_at_step={start} " + \
-                 (spec_err + " " if spec_err else "") + " ".join(notes)
+        peak = float((diffuse + emissive).max())
+        report = (f"on={applied_on} off={applied_off} peak={peak:.3f} "
+                  f"start_at_step={start} " + " ".join(notes))
 
         return (prelit.unsqueeze(0),
                 lightmap.clamp(0, 1).unsqueeze(0),
