@@ -117,7 +117,8 @@ class LightLayerBuild:
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
-    def run(self, image, masks, spec, start_at_step_lit, start_at_step_off, start_at_step_plain):
+    def run(self, image, masks, spec,
+            start_at_step_lit, start_at_step_off, start_at_step_plain):
         img = image[0]                                  # [H,W,3]
         H, W, _ = img.shape
         dev, dt = img.device, img.dtype
@@ -125,32 +126,31 @@ class LightLayerBuild:
         try:
             entries = json.loads(spec) if spec.strip() else []
         except json.JSONDecodeError as e:
-            entries = []
-            spec_err = f"bad_json:{e.msg}"
+            entries, spec_err = [], f"bad_json:{e.msg}"
         else:
             spec_err = ""
         if isinstance(entries, dict):
             entries = [entries]
 
+        # одна запись раскатывается на все найденные маски (режим "все светильники")
         n_masks = int(masks.shape[0])
         if entries and n_masks > len(entries):
             entries = entries + [entries[-1]] * (n_masks - len(entries))
 
-        lightmap = torch.zeros(H, W, 3, device=dev, dtype=dt)
-        affected = torch.zeros(H, W, device=dev, dtype=dt)
-        notes, applied = [], 0
-
         diffuse  = torch.zeros(H, W, 3, device=dev, dtype=dt)
         emissive = torch.zeros(H, W, 3, device=dev, dtype=dt)
         dim      = torch.zeros(H, W, 3, device=dev, dtype=dt)
+        affected = torch.zeros(H, W, device=dev, dtype=dt)
+
+        notes = []
+        applied_on = 0
+        applied_off = 0
 
         for i, raw in enumerate(entries):
             p = dict(DEFAULTS)
             p.update(raw if isinstance(raw, dict) else {})
-            if p["state"] != "on":
-                notes.append(f"{i}:skip_{p['state']}")
-                continue
-            if i >= masks.shape[0]:
+
+            if i >= n_masks:
                 notes.append(f"{i}:no_mask")
                 continue
 
@@ -163,13 +163,7 @@ class LightLayerBuild:
 
             cone = _cone(H, W, cx, cy, p["dir_deg"], p["cone"], p["reach"],
                          p["falloff"], p["softness"], dev, dt)
-
             bulb = _blur(m, int(max(H, W) * float(p["bulb_blur"]))) * float(p["bulb_gain"])
-
-            rgb = torch.tensor(kelvin_to_rgb(p["kelvin"]), device=dev, dtype=dt)
-            contrib = (cone + bulb).unsqueeze(-1) * rgb * float(p["intensity"])
-
-            lightmap += contrib
 
             rgb = torch.tensor(kelvin_to_rgb(p["kelvin"]), device=dev, dtype=dt)
             inten = float(p["intensity"])
@@ -178,17 +172,17 @@ class LightLayerBuild:
                 diffuse  += cone.unsqueeze(-1) * rgb * inten * DIFFUSE_SCALE
                 emissive += bulb.unsqueeze(-1) * rgb * inten * EMISSIVE_SCALE
                 applied_on += 1
+                notes.append(f"{i}:on_{int(p['kelvin'])}K_{int(p['cone'])}deg")
             else:
                 dim += (cone + bulb).unsqueeze(-1) * rgb * inten * OFF_STRENGTH
                 applied_off += 1
+                notes.append(f"{i}:off_{int(p['cone'])}deg")
 
             affected = torch.maximum(affected, (cone + bulb).clamp(0, 1))
-            applied += 1
-            notes.append(f"{i}:ok_{int(p['kelvin'])}K_{int(p['cone'])}deg")
 
         lin = _srgb_to_linear(img)
-        lit = lin * (1.0 + diffuse) + emissive     # умножаем — фактура сохраняется
-        lit = lit / (1.0 + dim)                    # гашение (см. пункт 3)
+        lit = lin * (1.0 + diffuse) + emissive
+        lit = lit / (1.0 + dim)
         prelit = _linear_to_srgb(_knee(lit.clamp(min=0.0))).clamp(0, 1)
 
         if applied_on > 0:
@@ -197,14 +191,17 @@ class LightLayerBuild:
             mode, start = "off", start_at_step_off
         else:
             mode, start = "plain", start_at_step_plain
+
         peak = float((diffuse + emissive).max())
-        report = (f"on={applied_on} off={applied_off} peak={peak:.3f} "
-                  f"start_at_step={start} " + " ".join(notes))
+        report = (f"mode={mode} on={applied_on} off={applied_off} "
+                  f"peak={peak:.3f} start_at_step={start} "
+                  + (spec_err + " " if spec_err else "")
+                  + " ".join(notes))
 
         return (prelit.unsqueeze(0),
-                lightmap.clamp(0, 1).unsqueeze(0),
+                (diffuse + emissive).clamp(0, 1).unsqueeze(0),
                 affected.unsqueeze(0),
                 start,
                 report,
-                applied,
+                applied_on + applied_off,
                 mode)
