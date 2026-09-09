@@ -4,7 +4,7 @@ from .light_intent_parse import LightIntentParse
 from .light_layer_build import LightLayerBuild
 from .light_mask_select import LightMaskSelect
 from .light_spec_merge import LightSpecMerge
-from .light_tempate_pick import LightTemplatePick
+from .light_template_pick import LightTemplatePick
 from .mask_area import MaskArea
 from .mask_pick_by_location import MaskPickByLocation
 

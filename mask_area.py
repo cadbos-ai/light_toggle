@@ -3,7 +3,7 @@ class MaskArea:
     def INPUT_TYPES(cls):
         return {"required": {
             "mask": ("MASK",),
-            "min_fraction": ("FLOAT", {"default": 0.0008, "min": 0.0, "max": 1.0, "step": 0.0001}),
+            "min_fraction": ("FLOAT", {"default": 0.0004, "min": 0.0, "max": 1.0, "step": 0.0001}),
             "max_fraction": ("FLOAT", {"default": 0.15,   "min": 0.0, "max": 1.0, "step": 0.001}),
         }}
     RETURN_TYPES = ("FLOAT", "INT", "BOOLEAN", "STRING")
@@ -19,4 +19,4 @@ class MaskArea:
             return (frac, px, False, "absent")
         if frac > max_fraction:
             return (frac, px, False, "too_large")
-        return (frac, px, True, "found")
+        return (frac, px, True, f"found, total instances: {len(mask)}")

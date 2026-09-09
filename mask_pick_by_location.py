@@ -36,38 +36,20 @@ class MaskPickByLocation:
             return []
         if not anchor_en.strip():         # якоря нет — обойдёмся стороной
             return []
-        if not prior_json.strip():
-            return []
         return [] if anchor is not None else ["anchor"]
 
     def run(self, masks, anchor_en, side, prior_json, anchor=None):
         n = int(masks.shape[0])
         if n == 0:
             return (masks, "empty")
-        if n == 1:
-            return (masks[:1], "single")
-
-        cents = [_centroid(masks[i]) for i in range(n)]
-
-        if anchor is not None and int(anchor.shape[0]) > 0:
-            a = _centroid(anchor[0])
-            if a is not None:
-                best, bd = None, None
-                for i, c in enumerate(cents):
-                    if c is None:
-                        continue
-                    d = math.hypot(c[0] - a[0], c[1] - a[1])
-                    if bd is None or d < bd:
-                        best, bd = i, d
-                if best is not None:
-                    return (masks[best:best + 1],
-                            f"anchor_{anchor_en}_picked_{best}_of_{n}")
 
         H, W = int(masks.shape[1]), int(masks.shape[2])
         try:
             prior = json.loads(prior_json) if prior_json.strip() else {}
         except json.JSONDecodeError:
             prior = {}
+
+        cents = [_centroid(masks[i]) for i in range(n)]
 
         keep = []
         for i in range(n):
@@ -83,7 +65,24 @@ class MaskPickByLocation:
 
         masks = masks[keep]
         cents = [cents[i] for i in keep]
-        n = len(keep)
+        n_kept = len(keep)
+
+        if n_kept == 1:
+            return (masks[:1], f"single_of_{n}")
+
+        if anchor is not None and int(anchor.shape[0]) > 0:
+            a = _centroid(anchor[0])
+            if a is not None:
+                best, bd = None, None
+                for i, c in enumerate(cents):
+                    if c is None:
+                        continue
+                    dd = math.hypot(c[0] - a[0], c[1] - a[1])
+                    if bd is None or dd < bd:
+                        best, bd = i, dd
+                if best is not None:
+                    return (masks[best:best + 1],
+                            f"anchor_{anchor_en}_picked_{best}_of_{n_kept}")
 
         s = side.strip().lower()
         if s in ("left", "right", "top", "bottom"):
@@ -92,6 +91,6 @@ class MaskPickByLocation:
             cand = sorted((key(c), i) for i, c in enumerate(cents) if c is not None)
             if cand:
                 i = cand[0][1]
-                return (masks[i:i + 1], f"side_{s}_picked_{i}_of_{n}")
+                return (masks[i:i + 1], f"side_{s}_picked_{i}_of_{n_kept}")
 
-        return (masks[:1], f"ambiguous_{n}_took_0")
+        return (masks[:1], f"ambiguous_{n_kept}_took_0")
