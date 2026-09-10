@@ -69,6 +69,22 @@ def _blur(x, radius):
     return t.view(*x.shape)
 
 
+LUM = (0.2126, 0.7152, 0.0722)
+
+def _emitter(m, lin, lo=0.35, hi=0.75):
+    """Внутри маски выделяет самосветящиеся пиксели по относительной яркости."""
+    w = torch.tensor(LUM, device=lin.device, dtype=lin.dtype)
+    lum = (lin * w).sum(-1)
+    sel = m > 0.5
+    if int(sel.sum()) == 0:
+        return m * 0
+    peak = float(torch.quantile(lum[sel], 0.98))
+    if peak < 1e-4:
+        return m * 0
+    t = (lum / peak).clamp(0, 1)
+    return ((t - lo) / max(hi - lo, 1e-3)).clamp(0, 1) * m
+
+
 DEFAULTS = {
     "state": "on", "kelvin": 2700, "intensity": 0.85,
     "cone": 360, "dir_deg": 0, "reach": 0.35,
@@ -79,10 +95,12 @@ DEFAULTS = {
 
 DIFFUSE_SCALE  = 0.55   # во сколько конус умножает освещённость поверхностей
 EMISSIVE_SCALE = 0.70   # аддитивное свечение тела светильника
-OFF_CONE       = 0.75   # гашение засветки вокруг — как было
-OFF_BULB       = 12.0   # гашение самого тела светильника
-OFF_TINT       = 0.5    # 0 = гасить нейтрально, 1 = строго по спектру источника
-OFF_BULB_BLUR  = 0.004  # тело гасим туго, без тёмного ореола
+OFF_CONE       = 0.75   # засветка вокруг
+OFF_EMITTER    = 12.0   # сами лампочки — гасим жёстко
+OFF_BODY       = 0.6    # корпус — только темнеет вместе с комнатой
+OFF_TINT       = 0.5
+OFF_REACH_MUL  = 1.7    # выключение гасит шире, чем включение освещает
+OFF_FALLOFF    = 1.8
 KNEE           = 0.75   # порог мягкой компрессии светов
 
 
@@ -149,6 +167,8 @@ class LightLayerBuild:
         applied_on = 0
         applied_off = 0
 
+        lin = _srgb_to_linear(img)
+
         for i, raw in enumerate(entries):
             p = dict(DEFAULTS)
             p.update(raw if isinstance(raw, dict) else {})
@@ -179,16 +199,20 @@ class LightLayerBuild:
                 bulb_used = bulb
             else:
                 rgb_off = 1.0 - OFF_TINT * (1.0 - rgb)
-                bulb_off = _blur(m, int(max(H, W) * OFF_BULB_BLUR))
-                dim += (cone * OFF_CONE
-                        + bulb_off * OFF_BULB).unsqueeze(-1) * rgb_off * inten
+                cone_off = _cone(H, W, cx, cy, p["dir_deg"], p["cone"],
+                                 p["reach"] * OFF_REACH_MUL, OFF_FALLOFF,
+                                 p["softness"], dev, dt)
+                emit = _emitter(m, lin)
+                body = (m - emit).clamp(0, 1)
+                dim += (cone_off * OFF_CONE
+                        + emit * OFF_EMITTER
+                        + body * OFF_BODY).unsqueeze(-1) * rgb_off * inten
                 applied_off += 1
-                notes.append(f"{i}:off_{int(p['cone'])}deg")
-                bulb_used = bulb_off
+                notes.append(f"{i}:off_e{float(emit.mean()):.3f}")
+                bulb_used = emit
 
             affected = torch.maximum(affected, (cone + bulb_used).clamp(0, 1))
 
-        lin = _srgb_to_linear(img)
         lit = lin * (1.0 + diffuse) + emissive
         lit = lit / (1.0 + dim)
         prelit = _linear_to_srgb(_knee(lit.clamp(min=0.0))).clamp(0, 1)
