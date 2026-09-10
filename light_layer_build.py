@@ -127,8 +127,9 @@ class LightLayerBuild:
                 "masks": ("MASK",),
                 "spec":  ("STRING", {"forceInput": True}),
                 "start_at_step_lit":   ("INT", {"default": 5, "min": 0, "max": 20}),
-                "start_at_step_off":   ("INT", {"default": 3, "min": 0, "max": 20}),
+                "start_at_step_off":   ("INT", {"default": 0, "min": 0, "max": 20}),
                 "start_at_step_plain": ("INT", {"default": 0, "min": 0, "max": 20}),
+                "procedural_off":      ("BOOLEAN", {"default": False}),
             }
         }
 
@@ -138,8 +139,8 @@ class LightLayerBuild:
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
-    def run(self, image, masks, spec,
-            start_at_step_lit, start_at_step_off, start_at_step_plain):
+    def run(self, image, masks, spec, start_at_step_lit,
+            start_at_step_off, start_at_step_plain, procedural_off):
         img = image[0]                                  # [H,W,3]
         H, W, _ = img.shape
         dev, dt = img.device, img.dtype
@@ -198,18 +199,22 @@ class LightLayerBuild:
                 notes.append(f"{i}:on_{int(p['kelvin'])}K_{int(p['cone'])}deg")
                 bulb_used = bulb
             else:
-                rgb_off = 1.0 - OFF_TINT * (1.0 - rgb)
-                cone_off = _cone(H, W, cx, cy, p["dir_deg"], p["cone"],
-                                 p["reach"] * OFF_REACH_MUL, OFF_FALLOFF,
-                                 p["softness"], dev, dt)
-                emit = _emitter(m, lin)
-                body = (m - emit).clamp(0, 1)
-                dim += (cone_off * OFF_CONE
-                        + emit * OFF_EMITTER
-                        + body * OFF_BODY).unsqueeze(-1) * rgb_off * inten
                 applied_off += 1
-                notes.append(f"{i}:off_e{float(emit.mean()):.3f}")
-                bulb_used = emit
+                if procedural_off:
+                    rgb_off = 1.0 - OFF_TINT * (1.0 - rgb)
+                    cone_off = _cone(H, W, cx, cy, p["dir_deg"], p["cone"],
+                                     p["reach"] * OFF_REACH_MUL, OFF_FALLOFF,
+                                     p["softness"], dev, dt)
+                    emit = _emitter(m, lin)
+                    body = (m - emit).clamp(0, 1)
+                    dim += (cone_off * OFF_CONE
+                            + emit * OFF_EMITTER
+                            + body * OFF_BODY).unsqueeze(-1) * rgb_off * inten
+                    notes.append(f"{i}:off_proc_e{float(emit.mean()):.3f}")
+                    bulb_used = emit
+                else:
+                    notes.append(f"{i}:off_addressing_only")
+                    bulb_used = _blur(m, int(max(H, W) * 0.01))
 
             affected = torch.maximum(affected, (cone + bulb_used).clamp(0, 1))
 
