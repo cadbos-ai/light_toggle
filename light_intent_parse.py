@@ -2,8 +2,7 @@ import json, re
 
 
 class LightIntentParse:
-    ALL_FIXTURES = ("chandelier . pendant lamp . wall sconce . "
-                    "floor lamp . table lamp . ceiling light")
+    ALL_FIXTURES = "lamp . chandelier . sconce . ceiling light"
     PRIOR_ANY = {"y": [0.0, 1.0], "area": [0.0008, 0.12]}
 
     ACTION_OFF = [r"\bвыключ", r"\bвыкл\b", r"\bпогас", r"\bпогаш",
@@ -90,9 +89,10 @@ class LightIntentParse:
         return default
 
     RETURN_TYPES = ("STRING", "STRING", "STRING", "BOOLEAN", "STRING",
-                    "STRING", "STRING", "STRING", "STRING", "STRING")
+                    "STRING", "STRING", "STRING", "STRING", "STRING", "FLOAT")
     RETURN_NAMES = ("object_en", "action", "scope", "parsed", "status",
-                    "summary", "spec_json", "anchor_en", "side", "prior_json")
+                    "summary", "spec_json", "anchor_en", "side", "prior_json",
+                    "dino_threshold")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
@@ -159,6 +159,7 @@ class LightIntentParse:
         summary = (f"object={object_en} | action={action or '-'} | scope={scope} | "
                    f"anchor={anchor_en or '-'} | side={side or '-'} | "
                    f"prior={prior_json} | {status}")
+        threshold = 0.25 if (scope == "all" or not object_matched) else 0.40
 
-        return (object_en, action or "unknown", scope, parsed,
-                status, summary, spec_json, anchor_en, side, prior_json)
+        return (object_en, action or "unknown", scope, parsed, status,
+                summary, spec_json, anchor_en, side, prior_json, threshold)

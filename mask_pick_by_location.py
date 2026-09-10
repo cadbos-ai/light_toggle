@@ -60,8 +60,15 @@ class MaskPickByLocation:
                 keep.append(i)
 
         if not keep:
+            info = []
+            for i in range(n):
+                if cents[i] is None:
+                    info.append(f"{i}:empty")
+                    continue
+                af = float(masks[i].sum()) / max(H * W, 1)
+                info.append(f"{i}:y={cents[i][1]/max(H,1):.2f},a={af:.4f}")
             empty = torch.zeros((1, H, W), device=masks.device, dtype=masks.dtype)
-            return (empty, f"prior_reject_all_{n}")
+            return (empty, f"prior_reject_all_{n}[{' '.join(info)}]")
 
         masks = masks[keep]
         cents = [cents[i] for i in keep]

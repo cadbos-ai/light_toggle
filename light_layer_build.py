@@ -79,7 +79,10 @@ DEFAULTS = {
 
 DIFFUSE_SCALE  = 0.55   # во сколько конус умножает освещённость поверхностей
 EMISSIVE_SCALE = 0.70   # аддитивное свечение тела светильника
-OFF_STRENGTH   = 0.75   # сила гашения при state="off"
+OFF_CONE       = 0.75   # гашение засветки вокруг — как было
+OFF_BULB       = 12.0   # гашение самого тела светильника
+OFF_TINT       = 0.5    # 0 = гасить нейтрально, 1 = строго по спектру источника
+OFF_BULB_BLUR  = 0.004  # тело гасим туго, без тёмного ореола
 KNEE           = 0.75   # порог мягкой компрессии светов
 
 
@@ -173,12 +176,17 @@ class LightLayerBuild:
                 emissive += bulb.unsqueeze(-1) * rgb * inten * EMISSIVE_SCALE
                 applied_on += 1
                 notes.append(f"{i}:on_{int(p['kelvin'])}K_{int(p['cone'])}deg")
+                bulb_used = bulb
             else:
-                dim += (cone + bulb).unsqueeze(-1) * rgb * inten * OFF_STRENGTH
+                rgb_off = 1.0 - OFF_TINT * (1.0 - rgb)
+                bulb_off = _blur(m, int(max(H, W) * OFF_BULB_BLUR))
+                dim += (cone * OFF_CONE
+                        + bulb_off * OFF_BULB).unsqueeze(-1) * rgb_off * inten
                 applied_off += 1
                 notes.append(f"{i}:off_{int(p['cone'])}deg")
+                bulb_used = bulb_off
 
-            affected = torch.maximum(affected, (cone + bulb).clamp(0, 1))
+            affected = torch.maximum(affected, (cone + bulb_used).clamp(0, 1))
 
         lin = _srgb_to_linear(img)
         lit = lin * (1.0 + diffuse) + emissive
@@ -193,8 +201,9 @@ class LightLayerBuild:
             mode, start = "plain", start_at_step_plain
 
         peak = float((diffuse + emissive).max())
+        peak_dim = float(dim.max())
         report = (f"mode={mode} on={applied_on} off={applied_off} "
-                  f"peak={peak:.3f} start_at_step={start} "
+                  f"peak={peak:.3f} dim={peak_dim:.2f} start_at_step={start} "
                   + (spec_err + " " if spec_err else "")
                   + " ".join(notes))
 
