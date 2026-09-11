@@ -95,11 +95,9 @@ DEFAULTS = {
 
 DIFFUSE_SCALE  = 0.55   # во сколько конус умножает освещённость поверхностей
 EMISSIVE_SCALE = 0.70   # аддитивное свечение тела светильника
-OFF_CONE       = 0.75   # засветка вокруг
-OFF_EMITTER    = 12.0   # сами лампочки — гасим жёстко
-OFF_BODY       = 0.6    # корпус — только темнеет вместе с комнатой
+OFF_EMITTER    = 0.0    # тело гасит диффузия, процедура его не трогает
+OFF_BODY       = 0.0
 OFF_TINT       = 0.5
-OFF_REACH_MUL  = 1.7    # выключение гасит шире, чем включение освещает
 OFF_FALLOFF    = 1.8
 KNEE           = 0.75   # порог мягкой компрессии светов
 
@@ -130,17 +128,21 @@ class LightLayerBuild:
                 "start_at_step_off":   ("INT", {"default": 0, "min": 0, "max": 20}),
                 "start_at_step_plain": ("INT", {"default": 0, "min": 0, "max": 20}),
                 "procedural_off":      ("BOOLEAN", {"default": False}),
+                "off_cone":            ("FLOAT", {"default": 0.75, "min": 0.0, "max": 3.0, "step": 0.05}),
+                "off_reach_mul":       ("FLOAT", {"default": 1.7,  "min": 0.5, "max": 4.0, "step": 0.1}),
             }
         }
 
-    RETURN_TYPES = ("IMAGE", "IMAGE", "MASK", "INT", "STRING", "INT", "STRING")
+    RETURN_TYPES = ("IMAGE", "IMAGE", "MASK", "INT",
+                    "STRING", "INT", "STRING", "BOOLEAN")
     RETURN_NAMES = ("prelit", "lightmap", "affected",
-                    "start_at_step", "report", "applied", "mode")
+                    "start_at_step", "report", "applied", "mode", "is_off")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
     def run(self, image, masks, spec, start_at_step_lit,
-            start_at_step_off, start_at_step_plain, procedural_off):
+            start_at_step_off, start_at_step_plain, procedural_off,
+            off_cone, off_reach_mul):
         img = image[0]                                  # [H,W,3]
         H, W, _ = img.shape
         dev, dt = img.device, img.dtype
@@ -203,15 +205,13 @@ class LightLayerBuild:
                 if procedural_off:
                     rgb_off = 1.0 - OFF_TINT * (1.0 - rgb)
                     cone_off = _cone(H, W, cx, cy, p["dir_deg"], p["cone"],
-                                     p["reach"] * OFF_REACH_MUL, OFF_FALLOFF,
+                                     p["reach"] * float(off_reach_mul), OFF_FALLOFF,
                                      p["softness"], dev, dt)
-                    emit = _emitter(m, lin)
-                    body = (m - emit).clamp(0, 1)
-                    dim += (cone_off * OFF_CONE
-                            + emit * OFF_EMITTER
-                            + body * OFF_BODY).unsqueeze(-1) * rgb_off * inten
-                    notes.append(f"{i}:off_proc_e{float(emit.mean()):.3f}")
-                    bulb_used = emit
+                    dim += (cone_off * float(off_cone)
+                            + _blur(m, int(max(H, W) * 0.01)) * OFF_EMITTER
+                            ).unsqueeze(-1) * rgb_off * inten
+                    notes.append(f"{i}:off_proc")
+                    bulb_used = cone_off * 0
                 else:
                     notes.append(f"{i}:off_addressing_only")
                     bulb_used = _blur(m, int(max(H, W) * 0.01))
@@ -242,4 +242,5 @@ class LightLayerBuild:
                 start,
                 report,
                 applied_on + applied_off,
-                mode)
+                mode,
+                mode == "off")
