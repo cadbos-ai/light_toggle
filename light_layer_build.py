@@ -220,7 +220,9 @@ class LightLayerBuild:
 
         lit = lin * (1.0 + diffuse) + emissive
         lit = lit / (1.0 + dim)
-        prelit = _linear_to_srgb(_knee(lit.clamp(min=0.0))).clamp(0, 1)
+        if applied_on > 0 or float(dim.max()) > 0:
+            lit = _knee(lit.clamp(min=0.0))
+        prelit = _linear_to_srgb(lit.clamp(0, 1)).clamp(0, 1)
 
         if applied_on > 0:
             mode, start = "lit", start_at_step_lit
