@@ -1,3 +1,6 @@
+import torch
+
+
 from .common import _centroid
 
 
@@ -15,9 +18,9 @@ class MaskToPhrase:
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
-    def _describe(self, cx, cy, af, W, H, name):
+    def _describe(self, cx, cy, ytop, af, W, H, name):
         x, y = cx / max(W, 1), cy / max(H, 1)
-        vert = ("hanging from the ceiling" if y < 0.30 else
+        vert = ("hanging from the ceiling" if ytop < 0.22 else
                 "on the wall" if y < 0.62 else
                 "standing near the floor")
         horiz = ("on the left side of the room" if x < 0.34 else
@@ -43,8 +46,10 @@ class MaskToPhrase:
                 dbg.append(f"{i}:empty")
                 continue
             af = float(masks[i].sum()) / max(W * H, 1)
-            items.append(self._describe(c[0], c[1], af, W, H, name))
-            dbg.append(f"{i}:x={c[0]/max(W,1):.2f},y={c[1]/max(H,1):.2f},a={af:.4f}")
+            rows = torch.nonzero(masks[i].sum(dim=1) > 0.5)
+            ytop = float(rows.min()) / max(H, 1) if len(rows) else 1.0
+            items.append(self._describe(c[0], c[1], ytop, af, W, H, name))
+            dbg.append(f"{i}:x={c[0]/max(W,1):.2f},y={c[1]/max(H,1):.2f},a={af:.4f},ytop={ytop:.2f}")
 
         if not items:
             return (object_en, "no_centroids " + " ".join(dbg))
