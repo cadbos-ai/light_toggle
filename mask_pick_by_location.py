@@ -24,12 +24,28 @@ class MaskPickByLocation:
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
-    def _prior_ok(self, cent, area_frac, prior, H):
+    def _prior_ok(self, cent, area_frac, prior, H, ytop=None, cropped_top=False):
         if not prior:
             return True
-        ylo, yhi = prior.get("y", [0.0, 1.0])
+
         alo, ahi = prior.get("area", [0.0, 1.0])
-        return (ylo <= cent[1] / max(H, 1) <= yhi) and (alo <= area_frac <= ahi)
+        if not (alo <= area_frac <= ahi):
+            return False
+
+        # Объект обрезан верхним краем кадра — крепление вне видимой области,
+        # вертикальные признаки недостоверны, судим только по площади.
+        if cropped_top:
+            return True
+
+        ylo, yhi = prior.get("y", [0.0, 1.0])
+        if not (ylo <= cent[1] / max(H, 1) <= yhi):
+            return False
+
+        if ytop is not None and "ytop" in prior:
+            tlo, thi = prior["ytop"]
+            return tlo <= ytop <= thi
+
+        return True
 
     def check_lazy_status(self, masks, anchor_en, side, prior_json, anchor=None):
         if int(masks.shape[0]) <= 1:      # выбирать не из чего
@@ -51,22 +67,30 @@ class MaskPickByLocation:
 
         cents = [_centroid(masks[i]) for i in range(n)]
 
-        keep = []
+        keep, info = [], []
         for i in range(n):
             if cents[i] is None:
+                info.append(f"{i}:empty")
                 continue
+
+            rows = torch.nonzero(masks[i].sum(dim=1) > 0.5)
+            if len(rows) == 0:
+                info.append(f"{i}:empty")
+                continue
+
+            ytop_px = int(rows.min())
+            cropped_top = ytop_px <= 2
+            ytop = ytop_px / max(H, 1)
             af = float(masks[i].sum()) / max(H * W, 1)
-            if self._prior_ok(cents[i], af, prior, H):
+
+            ok = self._prior_ok(cents[i], af, prior, H, ytop, cropped_top)
+            info.append(f"{i}:y={cents[i][1]/max(H,1):.2f},"
+                        f"t={ytop:.2f}{'*' if cropped_top else ''},"
+                        f"a={af:.4f},{'ok' if ok else 'rej'}")
+            if ok:
                 keep.append(i)
 
         if not keep:
-            info = []
-            for i in range(n):
-                if cents[i] is None:
-                    info.append(f"{i}:empty")
-                    continue
-                af = float(masks[i].sum()) / max(H * W, 1)
-                info.append(f"{i}:y={cents[i][1]/max(H,1):.2f},a={af:.4f}")
             empty = torch.zeros((1, H, W), device=masks.device, dtype=masks.dtype)
             return (empty, f"prior_reject_all_{n}[{' '.join(info)}]")
 
