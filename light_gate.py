@@ -14,10 +14,12 @@ class LightGate:
                 "scope":         ("STRING",  {"forceInput": True}),
             },
             "optional": {
-                "found":       ("BOOLEAN", {"forceInput": True, "lazy": True}),
-                "mask_status": ("STRING",  {"forceInput": True, "lazy": True}),
-                "prefix_root": ("STRING",  {"default": "lt"}),
-                "run_tag":     ("STRING",  {"forceInput": True}),
+                "found":            ("BOOLEAN", {"forceInput": True, "lazy": True}),
+                "mask_status":      ("STRING",  {"forceInput": True, "lazy": True}),
+                "prefix_root":      ("STRING",  {"default": "lt"}),
+                "run_tag":          ("STRING",  {"forceInput": True}),
+                "action":           ("STRING", {"forceInput": True}),
+                "fixture_state":    ("STRING", {"forceInput": True, "lazy": True}),
             },
         }
 
@@ -31,7 +33,8 @@ class LightGate:
 
     def check_lazy_status(self, parsed, intent_status, scope,
                           found=None, mask_status=None,
-                          prefix_root="lt", run_tag=""):
+                          prefix_root="lt", run_tag="",
+                          action="", fixture_state=None):
         if self._short_circuit(parsed):
             return []
         need = []
@@ -39,16 +42,23 @@ class LightGate:
             need.append("found")
         if mask_status is None:
             need.append("mask_status")
+        if fixture_state is None:
+            need.append("fixture_state")
         return need
 
     def run(self, parsed, intent_status, scope,
-            found=None, mask_status=None, prefix_root="lt", run_tag=""):
+            found=None, mask_status=None, prefix_root="lt", run_tag="",
+            action="", fixture_state=None):
         if not parsed:
             proceed, status = False, f"reject_intent_{intent_status}"
         elif found is None:
             proceed, status = False, "reject_no_detector"
         elif not found:
             proceed, status = False, f"reject_{mask_status or 'absent'}"
+        elif action == "on" and fixture_state == "lit":
+            proceed, status = False, "reject_already_on"
+        elif action == "off" and fixture_state == "unlit":
+            proceed, status = False, "reject_already_off"
         elif scope == "all":
             proceed, status = True, "ok_all"
         else:
