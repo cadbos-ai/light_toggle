@@ -28,14 +28,16 @@ class LightGate:
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
-    def _short_circuit(self, parsed):
-        return not parsed
+    SCENE_ACTIONS = ("daylight", "ambient")
+
+    def _short_circuit(self, parsed, action=""):
+        return (not parsed) or (action in self.SCENE_ACTIONS)
 
     def check_lazy_status(self, parsed, intent_status, scope,
                           found=None, mask_status=None,
                           prefix_root="lt", run_tag="",
                           action="", fixture_state=None):
-        if self._short_circuit(parsed):
+        if self._short_circuit(parsed, action):
             return []
         need = []
         if found is None:
@@ -51,6 +53,8 @@ class LightGate:
             action="", fixture_state=None):
         if not parsed:
             proceed, status = False, f"reject_intent_{intent_status}"
+        elif action in self.SCENE_ACTIONS:
+            proceed, status = True, f"ok_{action}"
         elif found is None:
             proceed, status = False, "reject_no_detector"
         elif not found:

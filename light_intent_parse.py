@@ -70,6 +70,38 @@ class LightIntentParse:
         (r"\bснизу|\bнижн",                                   "bottom"),
     ]
 
+    SCENE_WINDOW = [r"\bза\s+окн", r"\bв\s+окн", r"\bна\s+улиц", r"\bснаруж",
+                    r"\bво\s+двор", r"\bпейзаж", r"\bнеб[оа]\b"]
+    SCENE_AMBIENT = [r"\bфонов", r"\bобщ\w*\s+освещ", r"\bобщ\w*\s+свет",
+                     r"\bатмосфер", r"\bбез\s+видим\w*\s+источник",
+                     r"\bосвещенност", r"\bнастроен", r"\bподсвет\w*\s+комнат"]
+
+    TIME_OF_DAY = [
+        (r"\bрассвет",                                   "dawn, with low warm sunlight and a pale sky"),
+        (r"\bутр",                                       "a clear morning with fresh low sunlight"),
+        (r"\bполден|\bполдн",                            "bright midday with high sun"),
+        (r"\bзакат|\bзолот\w*\s+час|\bзаход\w*\s+солнц", "sunset, with warm orange low sunlight"),
+        (r"\bсумерк|\bвечер",                            "dusk, with dim blue twilight outside"),
+        (r"\bноч",                                       "night, with a dark sky outside"),
+        (r"\bдневн|\bднем|\bдень\b",                     "daytime with bright natural light"),
+    ]
+    WEATHER = [
+        (r"\bпасмурн|\bоблачн", "overcast, with soft diffuse grey light"),
+        (r"\bдожд|\bливн",      "rainy, with dim grey light"),
+        (r"\bясн|\bсолнечн",    "clear and sunny, with strong direct sunlight"),
+        (r"\bтуман|\bдымк",     "misty, with very soft hazy light"),
+        (r"\bснег|\bснеж",      "snowy, with cool bright diffuse light"),
+    ]
+    AMBIENT_CHANGE = [
+        (r"\bярче|\bсветле",                   "the room becomes noticeably brighter"),
+        (r"\bтемне|\bприглуш|\bтускл|\bмрачн", "the room becomes dimmer and more intimate"),
+        (r"\bтепл|\bуютн|\bзолот",             "the light becomes warmer and more golden"),
+        (r"\bхолодн|\bпрохладн",               "the light becomes cooler and more neutral"),
+        (r"\bмягк|\bрассеян",                  "the light becomes softer and more diffuse"),
+        (r"\bконтрастн|\bдраматичн",           "the light becomes more contrasty and dramatic"),
+    ]
+    SCENE_ACTIONS = ("daylight", "ambient")
+
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -90,10 +122,12 @@ class LightIntentParse:
         return default
 
     RETURN_TYPES = ("STRING", "STRING", "STRING", "BOOLEAN", "STRING",
-                    "STRING", "STRING", "STRING", "STRING", "STRING", "FLOAT")
+                    "STRING", "STRING", "STRING", "STRING", "STRING", "FLOAT",
+                    "STRING", "BOOLEAN", "BOOLEAN")
     RETURN_NAMES = ("object_en", "action", "scope", "parsed", "status",
                     "summary", "spec_json", "anchor_en", "side", "prior_json",
-                    "dino_threshold")
+                    "dino_threshold",
+                    "scene_phrase", "heavy", "needs_fixture")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
@@ -111,6 +145,21 @@ class LightIntentParse:
 
         scope = "all" if any(re.search(p, t) for p in self.SCOPE_ALL) else "single"
 
+        tod     = self._pick(self.TIME_OF_DAY, t, "")
+        weather = self._pick(self.WEATHER, t, "")
+        amb     = self._pick(self.AMBIENT_CHANGE, t, "")
+        is_window  = any(re.search(p, t) for p in self.SCENE_WINDOW)
+        is_ambient = any(re.search(p, t) for p in self.SCENE_AMBIENT)
+
+        scene_action, scene_phrase = "", ""
+        if is_window or tod:
+            parts = [p for p in (tod, weather) if p]
+            scene_action = "daylight"
+            scene_phrase = " and ".join(parts)
+        elif is_ambient or weather or amb:
+            scene_action = "ambient"
+            scene_phrase = amb or weather
+
         # --- объект + приор -------------------------------------------------
         object_matched = ""
         prior = {}
@@ -125,6 +174,15 @@ class LightIntentParse:
             problems.append("no_action")
         if not object_matched and scope != "all":
             problems.append("no_object")
+
+        if scene_action:
+            action = scene_action
+            object_en, object_matched = "", ""
+            prior = dict(self.PRIOR_ANY)
+            spec_json = "[]"
+            problems = ["no_scene"] if not scene_phrase else []
+        else:
+            scene_phrase = ""
 
         # --- режим «все светильники» ----------------------------------------
         if scope == "all":
@@ -161,6 +219,9 @@ class LightIntentParse:
                    f"anchor={anchor_en or '-'} | side={side or '-'} | "
                    f"prior={prior_json} | {status}")
         threshold = 0.25 if (scope == "all" or not object_matched) else 0.40
+        heavy = action in ("off",) + self.SCENE_ACTIONS
+        needs_fixture = not scene_action
 
         return (object_en, action or "unknown", scope, parsed, status,
-                summary, spec_json, anchor_en, side, prior_json, threshold)
+                summary, spec_json, anchor_en, side, prior_json, threshold,
+                scene_phrase, heavy, needs_fixture)

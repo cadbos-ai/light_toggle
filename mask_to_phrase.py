@@ -7,16 +7,24 @@ from .common import _centroid
 class MaskToPhrase:
     @classmethod
     def INPUT_TYPES(cls):
-        return {"required": {
-            "masks":     ("MASK",),
-            "object_en": ("STRING", {"forceInput": True}),
-            "max_items": ("INT", {"default": 6, "min": 1, "max": 12}),
-        }}
+        return {
+            "required": {
+                "object_en": ("STRING", {"forceInput": True}),
+                "max_items": ("INT", {"default": 6, "min": 1, "max": 12}),
+                "enabled":   ("BOOLEAN", {"forceInput": True}),
+            },
+            "optional": {"masks": ("MASK", {"lazy": True})},
+        }
 
     RETURN_TYPES = ("STRING", "STRING")
     RETURN_NAMES = ("phrase", "debug")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
+
+    def check_lazy_status(self, object_en, max_items, enabled, masks=None):
+        if not enabled:
+            return []
+        return [] if masks is not None else ["masks"]
 
     def _describe(self, cx, cy, ytop, af, W, H, name):
         x, y = cx / max(W, 1), cy / max(H, 1)
@@ -29,7 +37,9 @@ class MaskToPhrase:
         size = "large " if af > 0.02 else "small " if af < 0.004 else ""
         return f"the {size}{name} {vert} {horiz}"
 
-    def run(self, masks, object_en, max_items):
+    def run(self, object_en, max_items, enabled, masks=None):
+        if not enabled or masks is None:
+            return (object_en, "scene_mode")
         n = int(masks.shape[0])
         if n == 0:
             return (object_en, "empty")

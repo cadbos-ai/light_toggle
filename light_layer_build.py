@@ -122,7 +122,6 @@ class LightLayerBuild:
         return {
             "required": {
                 "image": ("IMAGE",),
-                "masks": ("MASK",),
                 "spec":  ("STRING", {"forceInput": True}),
                 "start_at_step_lit":   ("INT", {"default": 5, "min": 0, "max": 20}),
                 "start_at_step_off":   ("INT", {"default": 0, "min": 0, "max": 20}),
@@ -130,6 +129,9 @@ class LightLayerBuild:
                 "procedural_off":      ("BOOLEAN", {"default": False}),
                 "off_cone":            ("FLOAT", {"default": 0.75, "min": 0.0, "max": 3.0, "step": 0.05}),
                 "off_reach_mul":       ("FLOAT", {"default": 1.7,  "min": 0.5, "max": 4.0, "step": 0.1}),
+            },
+            "optional": {
+                "masks": ("MASK", {"lazy": True}),
             }
         }
 
@@ -140,9 +142,22 @@ class LightLayerBuild:
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
-    def run(self, image, masks, spec, start_at_step_lit,
-            start_at_step_off, start_at_step_plain, procedural_off,
-            off_cone, off_reach_mul):
+    def check_lazy_status(self, image, spec, start_at_step_lit,
+                          start_at_step_off, start_at_step_plain,
+                          procedural_off, off_cone, off_reach_mul, masks=None):
+        try:
+            entries = json.loads(spec) if spec.strip() else []
+        except json.JSONDecodeError:
+            entries = []
+        if isinstance(entries, dict):
+            entries = [entries]
+        if not entries:
+            return []
+        return [] if masks is not None else ["masks"]
+
+    def run(sself, image, spec, start_at_step_lit,
+            start_at_step_off, start_at_step_plain,
+            procedural_off, off_cone, off_reach_mul, masks=None):
         img = image[0]                                  # [H,W,3]
         H, W, _ = img.shape
         dev, dt = img.device, img.dtype
@@ -157,6 +172,8 @@ class LightLayerBuild:
             entries = [entries]
 
         # одна запись раскатывается на все найденные маски (режим "все светильники")
+        if masks is None:
+            masks = torch.zeros((0, H, W), device=dev, dtype=dt)
         n_masks = int(masks.shape[0])
         if entries and n_masks > len(entries):
             entries = entries + [entries[-1]] * (n_masks - len(entries))
