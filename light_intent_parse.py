@@ -5,15 +5,16 @@ class LightIntentParse:
     ALL_FIXTURES = "lamp . chandelier . sconce . ceiling light"
     PRIOR_ANY = {"y": [0.0, 1.0], "ytop": [0.0, 1.0], "area": [0.0008, 0.12]}
 
-    ACTION_OFF = [r"\bвыключ", r"\bвыкл\b", r"\bпогас", r"\bпогаш",
-                  r"\bпотуш", r"\bтуш", r"\bвыруб", r"\bгаси\b", r"\bубер"]
-    ACTION_ON  = [r"\bзажг", r"\bзажеч", r"\bвключ", r"\bвруб",
-                  r"\bзапуст", r"\bдобав\w*\s+свет"]
-    SCOPE_ALL  = [r"\bвс[еяю]\b", r"\bвесь\b", r"\bвсех\b", r"\bполностью\b"]
+    ACTION_OFF = [r"\bвыключ", r"\bвыкл\b", r"\bотключ", r"\bпогас", r"\bпогаш",
+                  r"\bпотуш", r"\bтуш", r"\bвыруб", r"\bгаси", r"\bубер"]
+    ACTION_ON  = [r"\bзажг", r"\bзажеч", r"\bзажж", r"\bвключ", r"\bвруб",
+                  r"\bзапуст", r"\bзасвет", r"\bдобав\w*\s+свет"]
+    SCOPE_ALL  = [r"\bвс[еяю]\b(?!\s+сторон)", r"\bвесь\b", r"\bвсех\b",
+                  r"\bвсем\b", r"\bво\s+всей\b", r"\bполностью\b"]
 
     OBJECTS = [
         (r"\bлюстр",              "chandelier",       {"y": [0.00, 0.50], "ytop": [0.00, 0.22], "area": [0.0015, 0.10]}),
-        (r"\bподвес",             "pendant lamp",     {"y": [0.00, 0.55], "ytop": [0.00, 0.25], "area": [0.002,  0.06]}),
+        (r"\bподвес\w*\s*(светильник|ламп)|\bподвес\b", "pendant lamp", {"y": [0.00, 0.55], "ytop": [0.00, 0.25], "area": [0.002, 0.06]}),
         (r"\bбра\b",              "wall sconce",      {"y": [0.10, 0.70], "ytop": [0.05, 0.60], "area": [0.001,  0.04]}),
         (r"\bторшер",             "floor lamp",       {"y": [0.25, 1.00], "ytop": [0.15, 0.85], "area": [0.002,  0.08]}),
         (r"\bнастольн\w*\s+ламп", "table lamp",       {"y": [0.30, 0.95], "ytop": [0.20, 0.90], "area": [0.001,  0.05]}),
@@ -21,25 +22,25 @@ class LightIntentParse:
         (r"\bгирлянд",            "string lights",    {"y": [0.00, 1.00], "ytop": [0.00, 1.00], "area": [0.001,  0.15]}),
         (r"\bподсветк",           "led strip",        {"y": [0.00, 1.00], "ytop": [0.00, 1.00], "area": [0.001,  0.10]}),
         (r"\bлампоч",             "light bulb",       {"y": [0.00, 0.90], "ytop": [0.00, 0.90], "area": [0.0003, 0.02]}),
-        (r"\bсвет(?!ильник)|\bосвещен", "ceiling light", {"y": [0.00, 0.60], "ytop": [0.00, 0.40], "area": [0.001, 0.12]}),
+        (r"\bсвет(?:[аоуеы]|ом|ами)?\b|\bосвещени", "ceiling light", {"y": [0.00, 0.60], "ytop": [0.00, 0.40], "area": [0.001, 0.12]}),
         (r"\bламп",               "lamp",             {"y": [0.00, 1.00], "ytop": [0.00, 1.00], "area": [0.001,  0.10]}),
         (r"\bсветильник",         "lighting fixture", {"y": [0.00, 1.00], "ytop": [0.00, 1.00], "area": [0.001,  0.12]}),
         (r"\bокн|\bокош",         "window",           {"y": [0.00, 0.90], "ytop": [0.00, 0.90], "area": [0.005,  0.30]}),
     ]
 
     KELVIN = [
-        (r"\bзакат|\bзолот\w*\s+час|\bсвеч",           2200),
-        (r"\bочень\s+тепл|\bянтарн",                   2400),
-        (r"\bтепл|\bуютн",                             2700),
-        (r"\bнейтральн|\bестествен",                   4000),
-        (r"\bхолодн|\bбел\w*\s+свет",                  5500),
-        (r"\bдневн",                                   6500),
+        (r"\bзакат|\bзолот\w*\s+час|\bсвеч(?!ени)", 2200),
+        (r"\bочень\s+тепл|\bянтарн",                2400),
+        (r"\b(?:по)?тепл|\bуютн",                   2700),
+        (r"\bнейтральн|\bестествен",                4000),
+        (r"\b(?:по)?холодн|\bбел\w*\s+свет",        5500),
+        (r"\bдневн",                                6500),
     ]
     INTENSITY = [
-        (r"\bеле|\bчуть|\bслаб|\bприглуш|\bтускл",     0.35),
-        (r"\bмягк|\bнеярк",                            0.6),
-        (r"\bярк|\bсильн|\bпоярч",                     1.25),
-        (r"\bочень\s+ярк|\bмаксимальн",                1.6),
+        (r"\bочень\s+ярк|\bмаксимальн|\bослепител",       1.6),
+        (r"\bярк|\bсильн|\b(?:по)?ярче|\bпоярч",          1.25),
+        (r"\b(?:по)?мягк|\b(?:по)?мягч|\bнеярк",          0.6),
+        (r"\bеле|\bчуть|\bслаб|\bприглуш|\b(?:по)?тускл", 0.35),
     ]
     CONE = [
         (r"\bузк|\bточечн|\bнаправлен",                60),
@@ -64,10 +65,10 @@ class LightIntentParse:
         (r"\bокн|\bокош",                      "window"),
     ]
     SIDE = [
-        (r"\bслев|\bлев\w*\s+(бра|светильник|ламп|торшер)",  "left"),
+        (r"\bслев|\bлев\w*\s+(бра|светильник|ламп|торшер)",   "left"),
         (r"\bсправ|\bправ\w*\s+(бра|светильник|ламп|торшер)", "right"),
-        (r"\bсверху|\bверхн",                                 "top"),
-        (r"\bснизу|\bнижн",                                   "bottom"),
+        (r"\bсверху\b|\bверхн(?!\w*\s+(?:свет|освещ))",       "top"),
+        (r"\bснизу\b|\bнижн(?!\w*\s+(?:свет|освещ))",         "bottom"),
     ]
 
     SCENE_WINDOW = [r"\bза\s+окн", r"\bв\s+окн", r"\bна\s+улиц", r"\bснаруж",
@@ -93,12 +94,13 @@ class LightIntentParse:
         (r"\bснег|\bснеж",      "snowy, with cool bright diffuse light"),
     ]
     AMBIENT_CHANGE = [
-        (r"\bярче|\bсветле",                   "the room becomes noticeably brighter"),
-        (r"\bтемне|\bприглуш|\bтускл|\bмрачн", "the room becomes dimmer and more intimate"),
-        (r"\bтепл|\bуютн|\bзолот",             "the light becomes warmer and more golden"),
-        (r"\bхолодн|\bпрохладн",               "the light becomes cooler and more neutral"),
-        (r"\bмягк|\bрассеян",                  "the light becomes softer and more diffuse"),
-        (r"\bконтрастн|\bдраматичн",           "the light becomes more contrasty and dramatic"),
+        (r"\b(?:по)?ярче|\b(?:по)?светле|\bбольше\s+свет",      "the room becomes noticeably brighter"),
+        (r"\b(?:по)?темне|\bзатемн|\bприглуш|\b(?:по)?тускл|\bмрачн|\bменьше\s+свет",
+                                                                "the room becomes dimmer and more intimate"),
+        (r"\b(?:по)?тепл|\bуютн|\bзолотист",                    "the light becomes warmer and more golden"),
+        (r"\b(?:по)?холодн|\b(?:по)?прохладн",                  "the light becomes cooler and more neutral"),
+        (r"\b(?:по)?мягч|\b(?:по)?мягк|\bрассеян|\bравномерн",  "the light becomes softer and more diffuse"),
+        (r"\bконтрастн|\bдраматичн|\bжестк",                    "the light becomes more contrasty and dramatic"),
     ]
     SCENE_ACTIONS = ("daylight", "ambient")
 
@@ -159,6 +161,19 @@ class LightIntentParse:
         elif is_ambient or weather or amb:
             scene_action = "ambient"
             scene_phrase = amb or weather
+
+        if scene_action == "ambient" and not scene_phrase:
+            inten = self._pick(self.INTENSITY, t, 0.0)
+            if inten >= 1.25:
+                scene_phrase = "the room becomes noticeably brighter"
+            elif 0.0 < inten <= 0.6:
+                scene_phrase = "the room becomes dimmer and more intimate"
+            else:
+                kelv = self._pick(self.KELVIN, t, 0)
+                if kelv and kelv <= 2700:
+                    scene_phrase = "the light becomes warmer and more golden"
+                elif kelv and kelv >= 5500:
+                    scene_phrase = "the light becomes cooler and more neutral"
 
         # --- объект + приор -------------------------------------------------
         object_matched = ""
