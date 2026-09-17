@@ -147,6 +147,7 @@ class LightIntentParse:
 
         scope = "all" if any(re.search(p, t) for p in self.SCOPE_ALL) else "single"
 
+        # --- 1. сценные режимы определяются первыми -------------------------
         tod     = self._pick(self.TIME_OF_DAY, t, "")
         weather = self._pick(self.WEATHER, t, "")
         amb     = self._pick(self.AMBIENT_CHANGE, t, "")
@@ -155,9 +156,8 @@ class LightIntentParse:
 
         scene_action, scene_phrase = "", ""
         if is_window or tod:
-            parts = [p for p in (tod, weather) if p]
             scene_action = "daylight"
-            scene_phrase = " and ".join(parts)
+            scene_phrase = " and ".join(p for p in (tod, weather) if p)
         elif is_ambient or weather or amb:
             scene_action = "ambient"
             scene_phrase = amb or weather
@@ -175,32 +175,30 @@ class LightIntentParse:
                 elif kelv and kelv >= 5500:
                     scene_phrase = "the light becomes cooler and more neutral"
 
-        # --- объект + приор -------------------------------------------------
-        object_matched = ""
-        prior = {}
-        for pat, en, pr in self.OBJECTS:
-            if re.search(pat, t):
-                object_matched, prior = en, dict(pr)
-                break
+        # --- 2. объект ищем, только если это не сцена ------------------------
+        object_matched, prior = "", {}
+        if not scene_action:
+            for pat, en, pr in self.OBJECTS:
+                if re.search(pat, t):
+                    object_matched, prior = en, dict(pr)
+                    break
 
-        # --- проблемы разбора -----------------------------------------------
+        # --- 3. проблемы разбора ---------------------------------------------
         problems = []
-        if not action:
-            problems.append("no_action")
-        if not object_matched and scope != "all":
-            problems.append("no_object")
+        if not scene_action:
+            if not action:
+                problems.append("no_action")
+            if not object_matched and scope != "all":
+                problems.append("no_object")
 
+        # --- 4. финальное присвоение объекта ---------------------------------
         if scene_action:
             action = scene_action
-            object_en, object_matched = "", ""
+            object_en = ""
             prior = dict(self.PRIOR_ANY)
-            spec_json = "[]"
-            problems = ["no_scene"] if not scene_phrase else []
-        else:
-            scene_phrase = ""
-
-        # --- режим «все светильники» ----------------------------------------
-        if scope == "all":
+            if not scene_phrase:
+                problems = ["no_scene"]
+        elif scope == "all":
             object_en = self.ALL_FIXTURES
             prior = dict(self.PRIOR_ANY)
             problems = [p for p in problems if p != "no_object"]
@@ -225,6 +223,8 @@ class LightIntentParse:
             "reach":     0.35,
         }]
         spec_json = json.dumps(spec, ensure_ascii=False)
+        if scene_action:
+            spec_json = "[]"
         prior_json = json.dumps(prior, ensure_ascii=False)
 
         # --- итог -------------------------------------------------------------
