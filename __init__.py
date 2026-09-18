@@ -8,6 +8,7 @@ from .light_template_pick import LightTemplatePick
 from .mask_area import MaskArea
 from .mask_pick_by_location import MaskPickByLocation
 from .mask_to_phrase import MaskToPhrase
+from .mask_batch_merge import MaskBatchMerge
 
 
 NODE_CLASS_MAPPINGS = {
@@ -21,6 +22,7 @@ NODE_CLASS_MAPPINGS = {
     "MaskPickByLocation": MaskPickByLocation,
     "LightTemplatePick": LightTemplatePick,
     "MaskToPhrase": MaskToPhrase,
+    "MaskBatchMerge": MaskBatchMerge,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -34,6 +36,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "MaskPickByLocation": "Mask Pick By Location",
     "LightTemplatePick": "Light Template Pick",
     "MaskToPhrase": "Mask To Phrase",
+    "MaskBatchMerge": "Mask Batch Merge",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
