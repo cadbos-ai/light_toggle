@@ -233,7 +233,7 @@ class LightIntentParse:
         summary = (f"object={object_en} | action={action or '-'} | scope={scope} | "
                    f"anchor={anchor_en or '-'} | side={side or '-'} | "
                    f"prior={prior_json} | {status}")
-        threshold = 0.25 if (scope == "all" or not object_matched) else 0.40
+        threshold = 0.18 if (scope == "all" or not object_matched) else 0.30
         heavy = action in ("off",) + self.SCENE_ACTIONS
         needs_fixture = not scene_action
 
