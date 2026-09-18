@@ -16,6 +16,8 @@ class MaskPickByLocation:
             },
             "optional": {
                 "anchor": ("MASK", {"lazy": True}),
+                "scope":  ("STRING", {"forceInput": True}),
+                "ambiguous_mode": (["all", "first"], {"default": "all"}),
             },
         }
 
@@ -54,7 +56,8 @@ class MaskPickByLocation:
             return []
         return [] if anchor is not None else ["anchor"]
 
-    def run(self, masks, anchor_en, side, prior_json, anchor=None):
+    def run(self, masks, anchor_en, side, prior_json, anchor=None,
+            scope="single", ambiguous_mode="all"):
         n = int(masks.shape[0])
         if n == 0:
             return (masks, "empty")
@@ -124,4 +127,6 @@ class MaskPickByLocation:
                 i = cand[0][1]
                 return (masks[i:i + 1], f"side_{s}_picked_{i}_of_{n_kept}")
 
+        if scope == "all" or ambiguous_mode == "all":
+            return (masks, f"all_{n_kept}_of_{n}")
         return (masks[:1], f"ambiguous_{n_kept}_took_0")
