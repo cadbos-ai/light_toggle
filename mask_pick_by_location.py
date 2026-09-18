@@ -49,10 +49,11 @@ class MaskPickByLocation:
 
         return True
 
-    def check_lazy_status(self, masks, anchor_en, side, prior_json, anchor=None):
-        if int(masks.shape[0]) <= 1:      # выбирать не из чего
+    def check_lazy_status(self, masks, anchor_en, side, prior_json,
+                          anchor=None, **kw):
+        if int(masks.shape[0]) <= 1:
             return []
-        if not anchor_en.strip():         # якоря нет — обойдёмся стороной
+        if not anchor_en.strip():
             return []
         return [] if anchor is not None else ["anchor"]
 
