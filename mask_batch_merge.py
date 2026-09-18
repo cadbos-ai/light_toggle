@@ -15,17 +15,24 @@ class MaskBatchMerge:
     CATEGORY = "light-toggle"
 
     def run(self, iou_dedup, **kw):
-        parts = []
+        parts, shape, ref = [], None, None
         for k in sorted(kw):
             m = kw[k]
-            if m is None:
+            if m is None or int(m.shape[0]) == 0:
                 continue
+            if shape is None:
+                shape = (int(m.shape[1]), int(m.shape[2]))
+                ref = m
             for i in range(int(m.shape[0])):
                 if float(m[i].sum()) > 0:
                     parts.append(m[i])
 
         if not parts:
-            return (torch.zeros((1, 1, 1)), "empty")
+            if shape is None:
+                return (torch.zeros((1, 1, 1)), "empty_no_input")
+            H, W = shape
+            return (torch.zeros((1, H, W), device=ref.device, dtype=ref.dtype),
+                    "empty_all_zero")
 
         keep = []
         for c in parts:
