@@ -26,16 +26,18 @@ class MaskPickByLocation:
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
+    CROP_AREA_RELAX = 2.5
+
     def _prior_ok(self, cent, area_frac, prior, H, ytop=None, cropped_top=False):
         if not prior:
             return True
 
         alo, ahi = prior.get("area", [0.0, 1.0])
+        if cropped_top:
+            ahi = min(1.0, ahi * self.CROP_AREA_RELAX)
         if not (alo <= area_frac <= ahi):
             return False
 
-        # Объект обрезан верхним краем кадра — крепление вне видимой области,
-        # вертикальные признаки недостоверны, судим только по площади.
         if cropped_top:
             return True
 
