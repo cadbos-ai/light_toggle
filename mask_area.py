@@ -24,17 +24,24 @@ class MaskArea:
     CATEGORY = "light-toggle"
 
     def run(self, mask, min_fraction, max_fraction, image=None, lit_ratio=1.8):
-        m = (mask[0] > 0.5)
-        px = int(m.sum())
-        frac = px / max(m.numel(), 1)
+        n = int(mask.shape[0])
+        best_frac, total = 0.0, 0
+        for i in range(n):
+            m = (mask[i] > 0.5)
+            px = int(m.sum())
+            total += px
+            best_frac = max(best_frac, px / max(m.numel(), 1))
+
+        frac = best_frac
+        px = total
 
         if frac < min_fraction:
-            status = "absent"
+            status = f"absent_n{n}"
         elif frac > max_fraction:
-            status = "too_large"
+            status = f"too_large_n{n}"
         else:
-            status = "found"
-        found = status == "found"
+            status = f"found_n{n}"
+        found = status.startswith("found")
 
         rel, state = 0.0, "unknown"
         if image is not None and px > 0:
