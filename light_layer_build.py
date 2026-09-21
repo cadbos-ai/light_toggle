@@ -94,7 +94,7 @@ DEFAULTS = {
 
 
 DIFFUSE_SCALE  = 0.55   # во сколько конус умножает освещённость поверхностей
-EMISSIVE_SCALE = 0.70   # аддитивное свечение тела светильника
+EMISSIVE_SCALE = 0.0    # тело светильника рисует диффузия, процедура его не трогает
 OFF_EMITTER    = 0.0    # тело гасит диффузия, процедура его не трогает
 OFF_BODY       = 0.0
 OFF_TINT       = 0.25
@@ -212,8 +212,10 @@ class LightLayerBuild:
             inten = float(p["intensity"])
 
             if p["state"] == "on":
-                diffuse  += cone.unsqueeze(-1) * rgb * inten * DIFFUSE_SCALE
-                emissive += bulb.unsqueeze(-1) * rgb * inten * EMISSIVE_SCALE
+                body = _blur(m, int(max(H, W) * 0.01)).clamp(0, 1)
+                diffuse += (cone * (1.0 - body)).unsqueeze(-1) * rgb * inten * DIFFUSE_SCALE
+                if EMISSIVE_SCALE > 0:
+                    emissive += bulb.unsqueeze(-1) * rgb * inten * EMISSIVE_SCALE
                 applied_on += 1
                 notes.append(f"{i}:on_{int(p['kelvin'])}K_{int(p['cone'])}deg")
                 bulb_used = bulb
