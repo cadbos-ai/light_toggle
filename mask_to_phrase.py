@@ -16,8 +16,8 @@ class MaskToPhrase:
             "optional": {"masks": ("MASK", {"lazy": True})},
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("phrase", "debug")
+    RETURN_TYPES = ("STRING", "STRING", "INT")
+    RETURN_NAMES = ("phrase", "debug", "count")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
@@ -39,10 +39,10 @@ class MaskToPhrase:
 
     def run(self, object_en, max_items, enabled, masks=None):
         if not enabled or masks is None:
-            return (object_en, "scene_mode")
+            return (object_en, "scene_mode", 0)
         n = int(masks.shape[0])
         if n == 0:
-            return (object_en, "empty")
+            return (object_en, "empty", 0)
 
         H, W = int(masks.shape[1]), int(masks.shape[2])
         name = object_en.split(" . ")[0].strip() if " . " in object_en else object_en.strip()
@@ -62,14 +62,14 @@ class MaskToPhrase:
             dbg.append(f"{i}:x={c[0]/max(W,1):.2f},y={c[1]/max(H,1):.2f},a={af:.4f},ytop={ytop:.2f}")
 
         if not items:
-            return (object_en, "no_centroids " + " ".join(dbg))
+            return (object_en, "no_centroids " + " ".join(dbg), len(items))
         if len(items) == 1:
-            return (items[0], " ".join(dbg))
+            return (items[0], " ".join(dbg), len(items))
 
         uniq = []
         for it in items:
             if it not in uniq:
                 uniq.append(it)
         if len(uniq) == 1:
-            return (f"every {name} in the room ({len(items)} of them)", " ".join(dbg))
-        return ("all " + str(len(items)) + " of them: " + ", ".join(items), " ".join(dbg))
+            return (f"every {name} in the room ({len(items)} of them)", " ".join(dbg), len(items))
+        return ("all " + str(len(items)) + " of them: " + ", ".join(items), " ".join(dbg), len(items))
