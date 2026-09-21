@@ -65,5 +65,11 @@ class MaskToPhrase:
             return (object_en, "no_centroids " + " ".join(dbg))
         if len(items) == 1:
             return (items[0], " ".join(dbg))
-        return (f"all {len(items)} lighting fixtures — " + ", ".join(items),
-                " ".join(dbg))
+
+        uniq = []
+        for it in items:
+            if it not in uniq:
+                uniq.append(it)
+        if len(uniq) == 1:
+            return (f"every {name} in the room ({len(items)} of them)", " ".join(dbg))
+        return ("all " + str(len(items)) + " of them: " + ", ".join(items), " ".join(dbg))
