@@ -126,6 +126,7 @@ class LightLayerBuild:
                 "start_at_step_lit":   ("INT", {"default": 5, "min": 0, "max": 20}),
                 "start_at_step_off":   ("INT", {"default": 0, "min": 0, "max": 20}),
                 "start_at_step_plain": ("INT", {"default": 0, "min": 0, "max": 20}),
+                "procedural_on":       ("BOOLEAN", {"default": True}),
                 "procedural_off":      ("BOOLEAN", {"default": False}),
                 "off_cone":            ("FLOAT", {"default": 0.75, "min": 0.0, "max": 3.0, "step": 0.05}),
                 "off_reach_mul":       ("FLOAT", {"default": 1.7,  "min": 0.5, "max": 4.0, "step": 0.1}),
@@ -144,7 +145,8 @@ class LightLayerBuild:
 
     def check_lazy_status(self, image, spec, start_at_step_lit,
                           start_at_step_off, start_at_step_plain,
-                          procedural_off, off_cone, off_reach_mul, masks=None):
+                          procedural_on, procedural_off,
+                          off_cone, off_reach_mul, masks=None):
         try:
             entries = json.loads(spec) if spec.strip() else []
         except json.JSONDecodeError:
@@ -155,9 +157,10 @@ class LightLayerBuild:
             return []
         return [] if masks is not None else ["masks"]
 
-    def run(sself, image, spec, start_at_step_lit,
+    def run(self, image, spec, start_at_step_lit,
             start_at_step_off, start_at_step_plain,
-            procedural_off, off_cone, off_reach_mul, masks=None):
+            procedural_on, procedural_off,
+            off_cone, off_reach_mul, masks=None):
         img = image[0]                                  # [H,W,3]
         H, W, _ = img.shape
         dev, dt = img.device, img.dtype
@@ -212,12 +215,15 @@ class LightLayerBuild:
             inten = float(p["intensity"])
 
             if p["state"] == "on":
-                body = _blur(m, int(max(H, W) * 0.01)).clamp(0, 1)
-                diffuse += (cone * (1.0 - body)).unsqueeze(-1) * rgb * inten * DIFFUSE_SCALE
-                if EMISSIVE_SCALE > 0:
-                    emissive += bulb.unsqueeze(-1) * rgb * inten * EMISSIVE_SCALE
                 applied_on += 1
-                notes.append(f"{i}:on_{int(p['kelvin'])}K_{int(p['cone'])}deg")
+                if procedural_on:
+                    body = _blur(m, int(max(H, W) * 0.01)).clamp(0, 1)
+                    diffuse += (cone * (1.0 - body)).unsqueeze(-1) * rgb * inten * DIFFUSE_SCALE
+                    if EMISSIVE_SCALE > 0:
+                        emissive += bulb.unsqueeze(-1) * rgb * inten * EMISSIVE_SCALE
+                    notes.append(f"{i}:on_{int(p['kelvin'])}K_{int(p['cone'])}deg")
+                else:
+                    notes.append(f"{i}:on_addressing_only")
                 bulb_used = bulb
             else:
                 applied_off += 1
