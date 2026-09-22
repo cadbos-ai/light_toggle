@@ -1,3 +1,6 @@
+import re
+
+
 class CaptionMatch:
     POSITIVE = {
         "chandelier":    ["chandelier"],
@@ -29,7 +32,8 @@ class CaptionMatch:
     CATEGORY = "light-toggle"
 
     def run(self, text, object_en):
-        t = text.strip().lower()
+        t = re.sub(r"<loc_\d+>", " ", text).strip().lower()
+        t = re.sub(r"\s+", " ", t)
         obj = object_en.strip().lower()
         pos = self.POSITIVE.get(obj)
         if pos is None:
