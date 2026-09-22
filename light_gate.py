@@ -21,6 +21,7 @@ class LightGate:
                 "action":           ("STRING",  {"forceInput": True}),
                 "fixture_state":    ("STRING",  {"forceInput": True, "lazy": True}),
                 "verified":         ("BOOLEAN", {"forceInput": True, "lazy": True}),
+                "use_verify":       ("BOOLEAN", {"default": True}),
             },
         }
 
@@ -37,7 +38,8 @@ class LightGate:
     def check_lazy_status(self, parsed, intent_status, scope,
                           found=None, mask_status=None,
                           prefix_root="lt", run_tag="",
-                          action="", fixture_state=None, verified=None, **kw):
+                          action="", fixture_state=None,
+                          verified=None, use_verify=True, **kw):
         if self._short_circuit(parsed, action):
             return []
         need = []
@@ -49,13 +51,14 @@ class LightGate:
             need.append("fixture_state")
         if need:
             return need
-        if found and scope != "all" and verified is None:
+        if use_verify and found and scope != "all" and verified is None:
             return ["verified"]
         return []
 
     def run(self, parsed, intent_status, scope,
             found=None, mask_status=None, prefix_root="lt", run_tag="",
-            action="", fixture_state=None, verified=None, **kw):
+            action="", fixture_state=None,
+            verified=None, use_verify=True, **kw):
         if not parsed:
             proceed, status = False, f"reject_intent_{intent_status}"
         elif action in self.SCENE_ACTIONS:
@@ -64,7 +67,7 @@ class LightGate:
             proceed, status = False, "reject_no_detector"
         elif not found:
             proceed, status = False, f"reject_{mask_status or 'absent'}"
-        elif scope != "all" and verified is False:
+        elif use_verify and scope != "all" and verified is False:
             proceed, status = False, "reject_verify"
         elif action == "on" and fixture_state == "lit":
             proceed, status = False, "reject_already_on"
