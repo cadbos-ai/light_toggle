@@ -9,6 +9,7 @@ from .mask_area import MaskArea
 from .mask_pick_by_location import MaskPickByLocation
 from .mask_to_phrase import MaskToPhrase
 from .mask_batch_merge import MaskBatchMerge
+from .mask_bbox_crop import MaskBBoxCrop
 
 
 NODE_CLASS_MAPPINGS = {
@@ -23,6 +24,7 @@ NODE_CLASS_MAPPINGS = {
     "LightTemplatePick": LightTemplatePick,
     "MaskToPhrase": MaskToPhrase,
     "MaskBatchMerge": MaskBatchMerge,
+    "MaskBBoxCrop": MaskBBoxCrop,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -37,6 +39,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LightTemplatePick": "Light Template Pick",
     "MaskToPhrase": "Mask To Phrase",
     "MaskBatchMerge": "Mask Batch Merge",
+    "MaskBBoxCrop": "Mask Bounding Box Crop",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
