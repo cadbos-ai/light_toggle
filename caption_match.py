@@ -18,6 +18,8 @@ class CaptionMatch:
         "floor lamp":    ["chandelier", "sconce", "ceiling"],
         "ceiling light": ["table lamp", "floor lamp", "desk lamp", "sconce"],
     }
+    LIGHT_WORDS = ["lamp", "light", "bulb", "chandelier", "sconce", "fixture",
+                   "candle", "lantern", "pendant", "lampshade"]
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -35,6 +37,7 @@ class CaptionMatch:
         t = re.sub(r"<loc_\d+>", " ", text).strip().lower()
         t = re.sub(r"\s+", " ", t)
         obj = object_en.strip().lower()
+
         pos = self.POSITIVE.get(obj)
         if pos is None:
             return (True, f"verify_skip:{obj}")
@@ -42,4 +45,6 @@ class CaptionMatch:
             return (True, f"verify_match:{t[:60]}")
         if any(w in t for w in self.NEGATIVE.get(obj, [])):
             return (False, f"verify_conflict:{t[:60]}")
+        if not any(w in t for w in self.LIGHT_WORDS):
+            return (False, f"verify_no_fixture:{t[:60]}")
         return (True, f"verify_unclear:{t[:60]}")
