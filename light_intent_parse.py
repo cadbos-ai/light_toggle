@@ -103,6 +103,11 @@ class LightIntentParse:
         (r"\bконтрастн|\bдраматичн|\bжестк",                    "the light becomes more contrasty and dramatic"),
     ]
     SCENE_ACTIONS = ("daylight", "ambient")
+    PLURAL = [
+        r"\bсветильник[иа]\b", r"\bламп[ыи]\b", r"\bлампочк[иа]\b",
+        r"\bлюстр[ыи]\b", r"\bторшер[ыа]\b", r"\bспот[ыа]\b",
+        r"\bподсветк[и]\b", r"\bбра\b\s+(?:все|оба|обе)", r"\bоб[ае]\b",
+    ]
 
 
     @classmethod
@@ -125,11 +130,11 @@ class LightIntentParse:
 
     RETURN_TYPES = ("STRING", "STRING", "STRING", "BOOLEAN", "STRING",
                     "STRING", "STRING", "STRING", "STRING", "STRING", "FLOAT",
-                    "STRING", "BOOLEAN", "BOOLEAN")
+                    "STRING", "BOOLEAN", "BOOLEAN", "BOOLEAN")
     RETURN_NAMES = ("object_en", "action", "scope", "parsed", "status",
                     "summary", "spec_json", "anchor_en", "side", "prior_json",
                     "dino_threshold",
-                    "scene_phrase", "heavy", "needs_fixture")
+                    "scene_phrase", "heavy", "needs_fixture", "plural")
     FUNCTION = "run"
     CATEGORY = "light-toggle"
 
@@ -146,6 +151,7 @@ class LightIntentParse:
             action = ""
 
         scope = "all" if any(re.search(p, t) for p in self.SCOPE_ALL) else "single"
+        plural = any(re.search(p, t) for p in self.PLURAL) or scope == "all"
 
         # --- 1. сценные режимы определяются первыми -------------------------
         tod     = self._pick(self.TIME_OF_DAY, t, "")
@@ -239,4 +245,4 @@ class LightIntentParse:
 
         return (object_en, action or "unknown", scope, parsed, status,
                 summary, spec_json, anchor_en, side, prior_json, threshold,
-                scene_phrase, heavy, needs_fixture)
+                scene_phrase, heavy, needs_fixture, plural)
