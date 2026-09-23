@@ -18,6 +18,7 @@ class MaskPickByLocation:
                 "anchor": ("MASK", {"lazy": True}),
                 "scope":  ("STRING", {"forceInput": True}),
                 "ambiguous_mode": (["all", "first"], {"default": "all"}),
+                "plural": ("BOOLEAN", {"default": False}),
             },
         }
 
@@ -27,6 +28,7 @@ class MaskPickByLocation:
     CATEGORY = "light-toggle"
 
     CROP_AREA_RELAX = 2.5
+    PLURAL_SPREAD = 2.5
 
     def _prior_ok(self, cent, area_frac, prior, H, ytop=None, cropped_top=False):
         if not prior:
@@ -60,7 +62,7 @@ class MaskPickByLocation:
         return [] if anchor is not None else ["anchor"]
 
     def run(self, masks, anchor_en, side, prior_json, anchor=None,
-            scope="single", ambiguous_mode="all"):
+            scope="single", ambiguous_mode="all", plural=False):
         n = int(masks.shape[0])
         if n == 0:
             return (masks, "empty")
@@ -110,14 +112,21 @@ class MaskPickByLocation:
         if anchor is not None and int(anchor.shape[0]) > 0:
             a = _centroid(anchor[0])
             if a is not None:
-                best, bd = None, None
+                d = []
                 for i, c in enumerate(cents):
                     if c is None:
                         continue
-                    dd = math.hypot(c[0] - a[0], c[1] - a[1])
-                    if bd is None or dd < bd:
-                        best, bd = i, dd
-                if best is not None:
+                    d.append((math.hypot(c[0] - a[0], c[1] - a[1]), i))
+                if d:
+                    d.sort()
+                    if plural:
+                        lim = max(d[0][0] * self.PLURAL_SPREAD,
+                                  0.05 * math.hypot(W, H))
+                        sel = [i for dist, i in d if dist <= lim]
+                        if len(sel) > 1:
+                            return (masks[sel],
+                                    f"anchor_{anchor_en}_all_{len(sel)}_of_{n_kept}")
+                    best = d[0][1]
                     return (masks[best:best + 1],
                             f"anchor_{anchor_en}_picked_{best}_of_{n_kept}")
 
@@ -127,6 +136,11 @@ class MaskPickByLocation:
                    "top":   lambda c: c[1],  "bottom": lambda c: -c[1]}[s]
             cand = sorted((key(c), i) for i, c in enumerate(cents) if c is not None)
             if cand:
+                if plural and len(cand) > 1:
+                    lim = cand[0][0] + 0.15 * math.hypot(W, H)
+                    sel = [i for v, i in cand if v <= lim]
+                    if len(sel) > 1:
+                        return (masks[sel], f"side_{s}_all_{len(sel)}_of_{n_kept}")
                 i = cand[0][1]
                 return (masks[i:i + 1], f"side_{s}_picked_{i}_of_{n_kept}")
 
