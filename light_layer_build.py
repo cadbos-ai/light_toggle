@@ -100,6 +100,7 @@ OFF_BODY       = 0.0
 OFF_TINT       = 0.25
 OFF_FALLOFF    = 1.8
 KNEE           = 0.75   # порог мягкой компрессии светов
+REACH_REF_AREA = 0.03
 
 
 def _falloff(dist, reach_px, k):
@@ -130,6 +131,7 @@ class LightLayerBuild:
                 "procedural_off":      ("BOOLEAN", {"default": False}),
                 "off_cone":            ("FLOAT", {"default": 0.75, "min": 0.0, "max": 3.0, "step": 0.05}),
                 "off_reach_mul":       ("FLOAT", {"default": 1.7,  "min": 0.5, "max": 4.0, "step": 0.1}),
+                "reach_from_mask":     ("BOOLEAN", {"default": False}),
             },
             "optional": {
                 "masks": ("MASK", {"lazy": True}),
@@ -146,7 +148,8 @@ class LightLayerBuild:
     def check_lazy_status(self, image, spec, start_at_step_lit,
                           start_at_step_off, start_at_step_plain,
                           procedural_on, procedural_off,
-                          off_cone, off_reach_mul, masks=None):
+                          off_cone, off_reach_mul,
+                          masks=None, reach_from_mask=False):
         try:
             entries = json.loads(spec) if spec.strip() else []
         except json.JSONDecodeError:
@@ -160,7 +163,8 @@ class LightLayerBuild:
     def run(self, image, spec, start_at_step_lit,
             start_at_step_off, start_at_step_plain,
             procedural_on, procedural_off,
-            off_cone, off_reach_mul, masks=None):
+            off_cone, off_reach_mul,
+            masks=None, reach_from_mask=False):
         img = image[0]                                  # [H,W,3]
         H, W, _ = img.shape
         dev, dt = img.device, img.dtype
@@ -207,7 +211,13 @@ class LightLayerBuild:
                 continue
             cx, cy = c
 
-            cone = _cone(H, W, cx, cy, p["dir_deg"], p["cone"], p["reach"],
+            reach_eff = float(p["reach"])
+            if reach_from_mask:
+                af = float(m.sum()) / max(H * W, 1)
+                scale = (af / REACH_REF_AREA) ** 0.5
+                reach_eff *= min(max(scale, 0.4), 2.0)
+
+            cone = _cone(H, W, cx, cy, p["dir_deg"], p["cone"], reach_eff,
                          p["falloff"], p["softness"], dev, dt)
             bulb = _blur(m, int(max(H, W) * float(p["bulb_blur"]))) * float(p["bulb_gain"])
 
@@ -230,7 +240,7 @@ class LightLayerBuild:
                 if procedural_off:
                     rgb_off = 1.0 - OFF_TINT * (1.0 - rgb)
                     cone_off = _cone(H, W, cx, cy, p["dir_deg"], p["cone"],
-                                     p["reach"] * float(off_reach_mul), OFF_FALLOFF,
+                                     reach_eff * float(off_reach_mul), OFF_FALLOFF,
                                      p["softness"], dev, dt)
                     dim += (cone_off * float(off_cone)
                             + _blur(m, int(max(H, W) * 0.01)) * OFF_EMITTER
