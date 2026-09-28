@@ -19,6 +19,7 @@ class MaskPickByLocation:
                 "scope":  ("STRING", {"forceInput": True}),
                 "ambiguous_mode": (["all", "first"], {"default": "all"}),
                 "plural": ("BOOLEAN", {"default": False}),
+                "anchor_span": ("FLOAT", {"default": 0.9, "min": 0.1, "max": 3.0, "step": 0.1}),
             },
         }
 
@@ -62,10 +63,11 @@ class MaskPickByLocation:
         return [] if anchor is not None else ["anchor"]
 
     def run(self, masks, anchor_en, side, prior_json, anchor=None,
-            scope="single", ambiguous_mode="all", plural=False):
+            scope="single", ambiguous_mode="all", plural=False, anchor_span=0.9):
         n = int(masks.shape[0])
         if n == 0:
             return (masks, "empty")
+        pl = "P" if plural else "S"
 
         H, W = int(masks.shape[1]), int(masks.shape[2])
         try:
@@ -107,11 +109,20 @@ class MaskPickByLocation:
         n_kept = len(keep)
 
         if n_kept == 1:
-            return (masks[:1], f"single_of_{n}")
+            return (masks[:1], f"{pl}:single_of_{n}")
 
         if anchor is not None and int(anchor.shape[0]) > 0:
             a = _centroid(anchor[0])
             if a is not None:
+                ab = anchor[0] > 0.5
+                arows = torch.nonzero(ab.sum(dim=1) > 0)
+                acols = torch.nonzero(ab.sum(dim=0) > 0)
+                if len(arows) and len(acols):
+                    adiag = math.hypot(float(acols.max() - acols.min() + 1),
+                                       float(arows.max() - arows.min() + 1))
+                else:
+                    adiag = 0.0
+
                 d = []
                 for i, c in enumerate(cents):
                     if c is None:
@@ -121,14 +132,16 @@ class MaskPickByLocation:
                     d.sort()
                     if plural:
                         lim = max(d[0][0] * self.PLURAL_SPREAD,
-                                  0.05 * math.hypot(W, H))
+                                  adiag * float(anchor_span))
                         sel = [i for dist, i in d if dist <= lim]
                         if len(sel) > 1:
                             return (masks[sel],
-                                    f"anchor_{anchor_en}_all_{len(sel)}_of_{n_kept}")
+                                    f"{pl}:anchor_{anchor_en}_all_{len(sel)}_of_{n_kept}"
+                                    f"_lim{lim:.0f}_d{'/'.join(f'{x:.0f}' for x, _ in d)}")
                     best = d[0][1]
                     return (masks[best:best + 1],
-                            f"anchor_{anchor_en}_picked_{best}_of_{n_kept}")
+                            f"{pl}:anchor_{anchor_en}_picked_{best}_of_{n_kept}"
+                            f"_d{'/'.join(f'{x:.0f}' for x, _ in d)}")
 
         s = side.strip().lower()
         if s in ("left", "right", "top", "bottom"):
@@ -140,10 +153,10 @@ class MaskPickByLocation:
                     lim = cand[0][0] + 0.15 * math.hypot(W, H)
                     sel = [i for v, i in cand if v <= lim]
                     if len(sel) > 1:
-                        return (masks[sel], f"side_{s}_all_{len(sel)}_of_{n_kept}")
+                        return (masks[sel], f"{pl}:side_{s}_all_{len(sel)}_of_{n_kept}")
                 i = cand[0][1]
-                return (masks[i:i + 1], f"side_{s}_picked_{i}_of_{n_kept}")
+                return (masks[i:i + 1], f"{pl}:side_{s}_picked_{i}_of_{n_kept}")
 
         if scope == "all" or ambiguous_mode == "all":
-            return (masks, f"all_{n_kept}_of_{n}")
-        return (masks[:1], f"ambiguous_{n_kept}_took_0")
+            return (masks, f"{pl}:all_{n_kept}_of_{n}")
+        return (masks[:1], f"{pl}:ambiguous_{n_kept}_took_0")

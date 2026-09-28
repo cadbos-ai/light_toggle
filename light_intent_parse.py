@@ -237,7 +237,7 @@ class LightIntentParse:
         parsed = len(problems) == 0
         status = "ok" if parsed else "+".join(problems)
         summary = (f"object={object_en} | action={action or '-'} | scope={scope} | "
-                   f"anchor={anchor_en or '-'} | side={side or '-'} | "
+                   f"plural={plural} | anchor={anchor_en or '-'} | side={side or '-'} | "
                    f"prior={prior_json} | {status}")
         threshold = 0.25 if (scope == "all" or not object_matched) else 0.40
         heavy = action in ("on", "off") + self.SCENE_ACTIONS
