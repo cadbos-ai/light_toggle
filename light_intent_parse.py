@@ -3,7 +3,7 @@ import json, re
 
 class LightIntentParse:
     ALL_FIXTURES = "lamp . chandelier . sconce . ceiling light"
-    PRIOR_ANY = {"y": [0.0, 1.0], "ytop": [0.0, 1.0], "area": [0.0008, 0.12]}
+    PRIOR_ANY = {"y": [0.0, 1.0], "ytop": [0.0, 1.0], "area": [0.0003, 0.35]}
 
     ACTION_OFF = [r"\bвыключ", r"\bвыкл\b", r"\bотключ", r"\bпогас", r"\bпогаш",
                   r"\bпотуш", r"\bтуш", r"\bвыруб", r"\bгаси", r"\bубер"]
@@ -26,6 +26,8 @@ class LightIntentParse:
         (r"\bламп",               "lamp",             {"y": [0.00, 1.00], "ytop": [0.00, 1.00], "area": [0.001,  0.10]}),
         (r"\bсветильник",         "lighting fixture", {"y": [0.00, 1.00], "ytop": [0.00, 1.00], "area": [0.001,  0.12]}),
         (r"\bокн|\bокош",         "window",           {"y": [0.00, 0.90], "ytop": [0.00, 0.90], "area": [0.005,  0.30]}),
+        (r"\bламп",               "lamp",             {"y": [0.00, 1.00], "ytop": [0.00, 1.00], "area": [0.0003, 0.35]}),
+        (r"\bсветильник",         "lighting fixture", {"y": [0.00, 1.00], "ytop": [0.00, 1.00], "area": [0.0003, 0.35]}),
     ]
 
     KELVIN = [

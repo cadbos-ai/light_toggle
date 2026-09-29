@@ -100,16 +100,19 @@ class MaskPickByLocation:
             if ok:
                 keep.append(i)
 
+        rej = [s for s in info if s.endswith(",rej")]
+        tail = ("[" + " ".join(rej) + "]") if rej else ""
+
         if not keep:
             empty = torch.zeros((1, H, W), device=masks.device, dtype=masks.dtype)
-            return (empty, f"prior_reject_all_{n}[{' '.join(info)}]")
+            return (empty, f"{pl}:prior_reject_all_{n}[{' '.join(info)}]")
 
         masks = masks[keep]
         cents = [cents[i] for i in keep]
         n_kept = len(keep)
 
         if n_kept == 1:
-            return (masks[:1], f"{pl}:single_of_{n}")
+            return (masks[:1], f"{pl}:single_of_{n}{tail}")
 
         if anchor is not None and int(anchor.shape[0]) > 0:
             a = _centroid(anchor[0])
@@ -153,10 +156,12 @@ class MaskPickByLocation:
                     lim = cand[0][0] + 0.15 * math.hypot(W, H)
                     sel = [i for v, i in cand if v <= lim]
                     if len(sel) > 1:
-                        return (masks[sel], f"{pl}:side_{s}_all_{len(sel)}_of_{n_kept}")
+                        return (masks[sel],
+                                f"{pl}:side_{s}_all_{len(sel)}_of_{n_kept}{tail}")
                 i = cand[0][1]
-                return (masks[i:i + 1], f"{pl}:side_{s}_picked_{i}_of_{n_kept}")
+                return (masks[i:i + 1],
+                        f"{pl}:side_{s}_picked_{i}_of_{n_kept}{tail}")
 
         if scope == "all" or ambiguous_mode == "all":
-            return (masks, f"{pl}:all_{n_kept}_of_{n}")
+            return (masks, f"{pl}:all_{n_kept}_of_{n}{tail}")
         return (masks[:1], f"{pl}:ambiguous_{n_kept}_took_0")
