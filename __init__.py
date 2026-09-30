@@ -11,6 +11,7 @@ from .mask_to_phrase import MaskToPhrase
 from .mask_batch_merge import MaskBatchMerge
 from .mask_bbox_crop import MaskBBoxCrop
 from .caption_match import CaptionMatch
+from .text_sanitize import TextSanitize
 
 
 NODE_CLASS_MAPPINGS = {
@@ -27,6 +28,7 @@ NODE_CLASS_MAPPINGS = {
     "MaskBatchMerge": MaskBatchMerge,
     "MaskBBoxCrop": MaskBBoxCrop,
     "CaptionMatch": CaptionMatch,
+    "TextSanitize": TextSanitize,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -43,6 +45,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "MaskBatchMerge": "Mask Batch Merge",
     "MaskBBoxCrop": "Mask Bounding Box Crop",
     "CaptionMatch": "Caption Match",
+    "TextSanitize": "Text Sanitize",
 }
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
