@@ -30,6 +30,7 @@ class MaskPickByLocation:
 
     CROP_AREA_RELAX = 2.5
     PLURAL_SPREAD = 2.5
+    PLURAL_MAX_FRAC = 0.22    # доля диагонали кадра — потолок радиуса группы
 
     def _prior_ok(self, cent, area_frac, prior, H, ytop=None, cropped_top=False):
         if not prior:
@@ -136,6 +137,7 @@ class MaskPickByLocation:
                     if plural:
                         lim = max(d[0][0] * self.PLURAL_SPREAD,
                                   adiag * float(anchor_span))
+                        lim = min(lim, math.hypot(W, H) * self.PLURAL_MAX_FRAC)
                         sel = [i for dist, i in d if dist <= lim]
                         if len(sel) > 1:
                             return (masks[sel],

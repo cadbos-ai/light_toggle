@@ -64,12 +64,19 @@ class MaskToPhrase:
         if not items:
             return (object_en, "no_centroids " + " ".join(dbg), len(items))
         if len(items) == 1:
-            return (items[0], " ".join(dbg), len(items))
+            return (items[0], " ".join(dbg), 1)
 
-        uniq = []
+        seen, uniq = set(), []
         for it in items:
-            if it not in uniq:
-                uniq.append(it)
-        if len(uniq) == 1:
-            return (f"every {name} in the room ({len(items)} of them)", " ".join(dbg), len(items))
-        return ("all " + str(len(items)) + " of them: " + ", ".join(items), " ".join(dbg), len(items))
+            base = it
+            k = 2
+            while base in seen:
+                base = f"{it} (the {k}-th one)"
+                k += 1
+            seen.add(base)
+            uniq.append(base)
+
+        joined = ", ".join(uniq[:-1]) + " and " + uniq[-1]
+        return (f"two specific fixtures: {joined}" if len(uniq) == 2
+                else f"{len(uniq)} specific fixtures: {joined}",
+                " ".join(dbg), len(uniq))
